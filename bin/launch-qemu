@@ -236,7 +236,7 @@ RESET=1
 NET=none
 MONITOR=1
 FWD_PORTS=()
-MEMORY_FILES=()
+MEMORY_FILES=() # order matters, since loader may also set CPU's PC
 ENV_FILES=("${PWD}/qemu-env.sh")
 LOG_CATEGORIES="fdt,guest_errors,unimp,cpu_reset"
 
@@ -438,8 +438,8 @@ fi
 # or that uses commas as part of a string instance. Building as a string and
 # using eval on it is error-prone, e.g., if spaces are introduced to parameters.
 #
-# See QEMU User Guide in HPSC release for explanation of the command line arguments
-# Note: order of -device args may matter, must load ATF last, because loader also sets PC
+# See QEMU User Guide in HPSC release for explanation of the command line
+# arguments.
 
 SERIAL_PORT_ARGS=()
 for _ in "${SERIAL_PORTS[@]}"
