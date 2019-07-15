@@ -117,8 +117,11 @@ function attach_consoles()
         local pty=${PTYS_ARR[$i]}
         local sess=${SCREEN_SESSIONS[$i]}
         local pty_sess="hpsc-pts$(basename "$pty")"
+        local SCROLLBACK=1000000
         echo "Adding console $pty to screen session $sess"
         screen -d -m -S "$pty_sess" "$pty"
+        screen -S "$pty_sess" -X scrollback $SCROLLBACK
+        screen -S "$sess" -X scrollback $SCROLLBACK
         # TODO: Make this work without using "stuff" command
         screen -S "$sess" -X stuff "^C screen -m -r $pty_sess\r"
         sleep 1 # give the above command time to execute
