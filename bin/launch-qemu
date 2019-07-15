@@ -451,6 +451,7 @@ done
 DRIVE_ARGS=(
     -drive "file=${HPPS_SMC_NAND_0[run]},if=pflash,format=raw,index=3"
     -drive "file=${HPPS_SMC_SRAM_0[run]},if=pflash,format=raw,index=2"
+    -drive "file=${LSIO_SMC_NAND_0[run]},if=pflash,format=raw,index=1"
     -drive "file=${LSIO_SMC_SRAM_0[run]},if=pflash,format=raw,index=0"
 )
 
