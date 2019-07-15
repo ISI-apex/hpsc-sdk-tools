@@ -222,6 +222,7 @@ function attach_consoles()
         screen -d -m -S "$pty_sess" "$pty"
         # TODO: Make this work without using "stuff" command
         screen -S "$sess" -X stuff "^C screen -m -r $pty_sess\r"
+        sleep 1 # give the above command time to execute
         echo "Attach to screen session from another window with:"
         echo "  screen -r $sess"
     done
