@@ -20,7 +20,7 @@ function finish {
     then
         rm "$GDB_CMD_FILE"
     fi
-    if [ ! -z "$CONSOLES_PID" ]
+    if [[ $KILL_CONSOLES -eq 1 && ! -z "$CONSOLES_PID" ]]
     then
         if ps -p "$CONSOLES_PID" >/dev/null 2>&1
         then
@@ -396,6 +396,7 @@ do
 done
 
 DO_RUN=0
+KILL_CONSOLES=1
 echo "CMD: ${CMD}"
 case "${CMD}" in
    run)
@@ -429,6 +430,7 @@ EOF
     gdb_run)
         create_images
         setup_console
+        KILL_CONSOLES=0
         ;;
 esac
 
