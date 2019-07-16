@@ -408,12 +408,16 @@ case "${CMD}" in
         # setup/attach_consoles are called when gdb runs this script with "consoles"
         # cmd from the hook to the "run" command defined below:
 
-        if [ "$RESET" -eq 1 ]
+        NESTED_ARGS=()
+        if [ "$RESET" -eq 0 ]
         then
-            RESET_ARG=""
-        else
-            RESET_ARG="-S"
+            NESTED_ARGS+=(-S)
         fi
+
+        for f in "${ENV_FILES[@]}"
+        do
+            NESTED_ARGS+=(-e "$f")
+        done
 
         # NOTE: have to go through an actual file because -ex doesn't work since no way
         ## to give a multiline command (incl. multiple -ex), and bash-created file -x
@@ -421,7 +425,7 @@ case "${CMD}" in
         GDB_CMD_FILE=$(mktemp)
         cat >/"$GDB_CMD_FILE" <<EOF
 define hook-run
-shell $0 $RESET_ARG gdb_run
+shell "$0" ${NESTED_ARGS[@]} gdb_run
 end
 EOF
         GDB_ARGS=(gdb -x "$GDB_CMD_FILE" --args)
