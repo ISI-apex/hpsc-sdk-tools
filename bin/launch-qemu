@@ -485,14 +485,20 @@ then
     COMMAND+=(-gdb "tcp::$GDB_PORT")
 fi
 
-NET_NIC=(-net "nic,vlan=0,macaddr=$MAC_ADDR")
+# We have to use the legacy "-net nic" option because that's the only way to
+# associate the network device instantiated via the device tree to a backend.
+# As far as instantiating a backend, we do have the choice of using "-netdev
+# X,id=ND" (with "-net nic,netdev=ND") or "-net X" (with "-net nic"), the
+# latter implicitly creates a switch and associates both the backend and the
+# NIC to that switch. We use the latter option.
+NET_NIC=(-net "nic,macaddr=$MAC_ADDR")
 case "${NET}" in
 tap)
     # See HPSC Qemu User Guide for setup. In short, do this once, as root:
     #     ip link add $BRIDGE type bridge
     #     echo "allow $BRIDGE" >> /usr/local/etc/qemu/bridge.conf
     #     install -o root -g root -m 4775 /usr/local/bin/qemu-bridge-helper $QEMU_BRIDGE_PREFIX
-    COMMAND+=("${NET_NIC[@]}" -net "tap,vlan=0,br=$BRIDGE,helper=qemu-bridge-helper")
+    COMMAND+=("${NET_NIC[@]}" -net "tap,br=$BRIDGE,helper=qemu-bridge-helper")
     ;;
 user)
     if [[ "${#FWD_PORTS[@]}" -gt $MAX_FWD_PORTS ]]
@@ -508,7 +514,7 @@ user)
         FWD_PORTS_INFO+="$HOST_BIND_IP:$FWD_HOST_PORT-$TARGET_IP:$port\n"
         i=$((i + 1))
     done
-    COMMAND+=("${NET_NIC[@]}" -net "user,vlan=0$PORT_FWD_ARGS")
+    COMMAND+=("${NET_NIC[@]}" -net "user$PORT_FWD_ARGS")
     ;;
 none)
     ;;
