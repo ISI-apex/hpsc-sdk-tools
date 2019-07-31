@@ -6,8 +6,8 @@ all: qemu-nand-creator sram-image-utils
 qemu-nand-creator: qemu-nand-creator.c
 	$(CC) -O2 -g -o $@ $^
 
-sram-image-utils: sram-image-utils.c
-	$(CC) -O2 -g $(INC) $(LIB) -o $@ $^
+sram-image-utils: sram-image-utils.c ecc.c
+	$(CC) -O2 -g $(INC) $(LIB) -o $@ $^ -lssl -lcrypto
 
 clean:
 	rm -rf *.o qemu-nand-creator sram-image-utils
