@@ -219,6 +219,14 @@ deps-centos7: | $(BLD)/.
 	echo > $(BLD)/dep-env.sh
 .PHONY: deps-centos7
 
+deps-arch: | $(BLD)/.
+	sudo pacman -S --needed base-devel git screen python python2 \
+		uboot-tools glib2 pixman zlib ncurses wget dtc
+	which pacaur # if not installed, please install pacaur manually
+	pacaur -S --needed pax
+	echo > $(BLD)/dep-env.sh
+.PHONY: deps-arch
+
 deps-sysroot: tools-sysroot | $(BLD)/.
 	echo 'source $(abspath $(SYSROOT)/bld/env.sh)' > $(BLD)/dep-env.sh
 .PHONY: deps-sysroot
