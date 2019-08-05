@@ -22,6 +22,9 @@ SYSROOT=$(SDK_TOOLS)/sysroot
 TC_SYSROOT=$(BLD)/sysroot
 TC_PREFIX=$(TC_SYSROOT)/usr
 
+BIN_SYSROOT=$(BLD)/bin
+BIN_PREFIX=$(BIN_SYSROOT)/usr
+
 # Host tools needed to build the SDK (not including deps of nested builds)
 WGET=wget
 TAR=tar
@@ -30,11 +33,9 @@ TAR=tar
 LIBC_MIN_VERSION=2.14
 LIBC_VERSION=$(shell ldd --version | head -1 | grep -o '[0-9]\+\(\.[0-9]\+\)\+')
 
-all: $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),sysroot)
-clean: $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),sysroot-clean)
-
-all: tools toolchains env qemu qemu-dt
-clean: tools-clean toolchains-clean env-clean qemu-clean qemu-dt-clean
+all: binaries tools toolchains env qemu qemu-dt sysroot
+clean: binaries-clean tools-clean toolchains-clean env-clean \
+		qemu-clean qemu-dt-clean sysroot-clean
 
 # Prerequisites added to this rule dynamically
 fetch: toolchains-fetch sysroot-fetch tools-sysroot-fetch
@@ -46,6 +47,7 @@ PATHS=$(subst $(SPACE),:,$(abspath \
 	$(ZEBU)/bin \
 	$(BLD_QEMU) \
 	$(BLD_QEMU)/aarch64-softmmu \
+	$(BIN_PREFIX)/bin \
 	$(TC_PATHS)))
 
 define ENV
@@ -72,11 +74,19 @@ DEPS_TC=\
 	arm_gnu_rm \
 	arm_gnu_a \
 
-DEPS_LIB=\
+TC_SYSROOT_LIBS=\
 	glibc \
 	zlib \
 
-DEPS=$(DEPS_LIB) $(DEPS_TC)
+RELOCATE_TC=$(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),1)
+
+DEPS_TC_SYSROOT=$(if $(RELOCATE_TC),$(TC_SYSROOT_LIBS))
+
+DEPS_BIN=\
+	$(DEPS_TC_SYSROOT) \
+	gdb \
+
+DEPS=$(DEPS_BIN) $(DEPS_TC)
 
 # Other toolchain distributables may work as well, with the known exceptions:
 # * GCC v8 breaks build of kernel 4.14 (build completes but kernel does not run)
@@ -107,6 +117,13 @@ TARBALL_zlib=zlib-$(VER_zlib).tar.xz
 DIR_zlib=zlib-$(VER_zlib)
 ART_zlib=$(TC_PREFIX)/lib/libz.so
 
+# Build GDB with multi-arch support
+VER_gdb=8.3
+URL_gdb=https://ftp.gnu.org/gnu/gdb
+TARBALL_gdb=gdb-$(VER_gdb).tar.xz
+DIR_gdb=gdb-$(VER_gdb)
+ART_gdb=$(BIN_PREFIX)/bin/gdb
+
 $(ART_glibc):
 	mkdir -p $(DIR)/build
 	cd $(DIR)/build && ../configure --prefix=$(abspath $(TC_PREFIX))
@@ -115,6 +132,15 @@ $(ART_glibc):
 
 $(ART_zlib):
 	cd $(DIR) && ./configure --prefix=$(abspath $(TC_PREFIX))
+	$(MAKE) -C $(DIR)
+	$(MAKE) -C $(DIR) install
+
+$(ART_gdb):
+	cd $(DIR) && ./configure --prefix=$(abspath $(BIN_PREFIX)) \
+		--enable-targets=arm-none-eabi,aarch64-none-linux-,x86_64-none-linux- \
+		--enable-languages=c \
+		--enable-multilib --enable-interwork --disable-nls \
+		--with-python=/usr/bin/python3 --with-guile=guile-2.0
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
@@ -167,9 +193,8 @@ endef
 $(foreach d,$(DEPS),$(eval $(call fetch-rule,$(d))))
 $(foreach d,$(DEPS_TC),\
 	$(eval $(call extract-rule,$(d),$(TC)))\
-	$(eval $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),\
-		$(info RELOCATE)$(call tc-relocate-rule,$(d),$(TC)))))
-$(foreach d,$(DEPS_LIB),\
+	$(eval $(if $(RELOCATE_TC),$(call tc-relocate-rule,$(d),$(TC)))))
+$(foreach d,$(DEPS_BIN),\
 	$(eval $(call extract-rule,$(d),$(WORK)))\
 	$(eval $(call sysroot-clean-rule,$(d))))
 
@@ -177,7 +202,7 @@ $(foreach d,$(DEPS_LIB),\
 $(foreach d,$(DEPS),$(eval $(ART_$(d)): | $(WORK)/$(DIR_$(d))))
 
 # Alias for each dependency, that points to the artifact
-$(foreach d,$(DEPS_LIB),$(eval $(d): $(ART_$(d))))
+$(foreach d,$(DEPS_BIN),$(eval $(d): $(ART_$(d))))
 
 # Define per-target DIR to allow recipies to be more concise
 $(foreach d,$(DEPS),$(eval $(ART_$(d)): DIR=$(WORK)/$(DIR_$(d))))
@@ -188,10 +213,14 @@ toolchains-clean:
 	rm -rf $(TC)/
 .PHONY: toolchains-clean
 
-sysroot: $(DEPS_LIB)
-sysroot-clean: $(foreach d,$(DEPS_LIB),$(d)-clean)
-sysroot-fetch: $(foreach d,$(DEPS_LIB),$(FETCH)/$(TARBALL_$(d)))
+sysroot: $(DEPS_TC_SYSROOT)
+sysroot-clean: $(foreach d,$(DEPS_TC_SYSROOT),$(d)-clean)
+sysroot-fetch: $(foreach d,$(DEPS_TC_SYSROOT),$(FETCH)/$(TARBALL_$(d)))
 .PHONY: sysroot sysroot-clean
+
+binaries: $(DEPS_BIN)
+binaries-clean: $(foreach d,$(DEPS_BIN),$(d)-clean)
+.PHONY: binaries binaries-clean
 
 # Several alternatives for installing dependencies
 
@@ -212,7 +241,8 @@ deps-centos7: | $(BLD)/.
 	sudo yum group install "Development Tools"
 	sudo yum install java git gtk3 chrpath texinfo screen glib2-devel libfdt-devel \
 		pixman-devel zlib-devel uboot-tools bc ncurses-devel python-configparser \
-		python36u python36u-libs python36u-devel python36u-pip pax python-sphinx
+		python36u python36u-libs python36u-devel python36u-pip pax python-sphinx \
+		guile guile-devel
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
 	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
 		pygobject2 pygboject2-devel
@@ -221,7 +251,7 @@ deps-centos7: | $(BLD)/.
 
 deps-arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen python python2 \
-		uboot-tools glib2 pixman zlib ncurses wget dtc bc
+		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/dep-env.sh
