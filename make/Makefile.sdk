@@ -221,7 +221,7 @@ deps-centos7: | $(BLD)/.
 
 deps-arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen python python2 \
-		uboot-tools glib2 pixman zlib ncurses wget dtc
+		uboot-tools glib2 pixman zlib ncurses wget dtc bc
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/dep-env.sh
