@@ -26,8 +26,15 @@ TC_PREFIX=$(TC_SYSROOT)/usr
 WGET=wget
 TAR=tar
 
-all: tools toolchains env qemu qemu-dt sysroot
-clean: tools-clean toolchains-clean env-clean qemu-clean qemu-dt-clean sysroot-clean
+# pre-built toolchains are linked against a libc, so we must have at least that version
+LIBC_MIN_VERSION=2.14
+LIBC_VERSION=$(shell ldd --version | head -1 | grep -o '[0-9]\+\(\.[0-9]\+\)\+')
+
+all: $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),sysroot)
+clean: $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),sysroot-clean)
+
+all: tools toolchains env qemu qemu-dt
+clean: tools-clean toolchains-clean env-clean qemu-clean qemu-dt-clean
 
 # Prerequisites added to this rule dynamically
 fetch: toolchains-fetch sysroot-fetch tools-sysroot-fetch
@@ -160,7 +167,8 @@ endef
 $(foreach d,$(DEPS),$(eval $(call fetch-rule,$(d))))
 $(foreach d,$(DEPS_TC),\
 	$(eval $(call extract-rule,$(d),$(TC)))\
-	$(eval $(call tc-relocate-rule,$(d),$(TC))))
+	$(eval $(if $(call version-lt,$(LIBC_VERSION),$(LIBC_MIN_VERSION)),\
+		$(info RELOCATE)$(call tc-relocate-rule,$(d),$(TC)))))
 $(foreach d,$(DEPS_LIB),\
 	$(eval $(call extract-rule,$(d),$(WORK)))\
 	$(eval $(call sysroot-clean-rule,$(d))))
@@ -256,3 +264,7 @@ zebu:
 zebu-clean:
 	$(ZEBU_SHELL) -c 'source $(ZEBU_ENV) && make -C $(ZEBU) clean'
 .PHONY: zebu zebu-clean
+
+define version-lt
+$(filter-out $(2),$(firstword $(sort $(1) $(2))))
+endef # version-lt
