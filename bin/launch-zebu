@@ -2,20 +2,9 @@
 
 set -e
 
-extract_word() {
-    IDX=$1
-    shift
-    local i=0
-    for w in "$@"
-    do
-        if [ $i -eq $IDX ]
-        then
-            echo $w
-            return
-        fi
-        i=$(($i + 1))
-    done
-}
+SCRIPT_DIR=$(dirname ${BASH_SOURCE})
+
+source ${SCRIPT_DIR}/launch.sh
 
 MEM_FILE=$1
 
