@@ -292,6 +292,7 @@ done
 
 # Memory images created by this script will go here
 : "${RUN_DIR:=.}"
+RUN=$(realpath ${RUN_DIR})
 mkdir -p "${RUN_DIR}"
 
 : "${LOG_FILE:=/tmp/qemu-$(whoami).log}"
@@ -358,13 +359,13 @@ do
     SERIAL_PORT_ARGS+=(-serial pty)
 done
 
-RUN=0
+DO_RUN=0
 echo "CMD: ${CMD}"
 case "${CMD}" in
    run)
         create_images
         setup_console
-        RUN=1
+        DO_RUN=1
         ;;
    gdb)
         # setup/attach_consoles are called when gdb runs this script with "consoles"
@@ -387,7 +388,7 @@ shell $0 $RESET_ARG gdb_run
 end
 EOF
         GDB_ARGS=(gdb -x "$GDB_CMD_FILE" --args)
-        RUN=1
+        DO_RUN=1
         ;;
     gdb_run)
         create_images
@@ -395,7 +396,7 @@ EOF
         ;;
 esac
 
-if [ "$RUN" -eq 0 ]
+if [ "$DO_RUN" -eq 0 ]
 then
     exit
 fi

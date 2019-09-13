@@ -39,8 +39,8 @@ function preload_memory()
 source ${SCRIPT_DIR}/launch.sh
 
 : "${RUN_DIR:=.}"
+RUN=$(realpath ${RUN_DIR})
 mkdir -p "${RUN_DIR}"
-
 
 # Allow overriding settings (most of which settable via command line)
 ENV_FILES=("${PWD}/zebu-env.sh")
