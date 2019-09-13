@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+
+extract_word() {
+    IDX=$1
+    shift
+    local i=0
+    for w in "$@"
+    do
+        if [ $i -eq $IDX ]
+        then
+            echo $w
+            return
+        fi
+        i=$(($i + 1))
+    done
+}
+
+MEM_FILE=$1
+
+# Must match designFeatures
+PRELOAD_FILE=preload.mem
+
+echo -n > $PRELOAD_FILE
+
+while read line
+do
+    HASH="#"
+    if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
+    then
+        continue
+    fi
+    line=$(echo $line | sed 's/\(.*\)\s*#.*/\1/')
+
+    mem=$(eval echo $(extract_word 0 $line) )
+    # addr=$(eval echo $(extract_word 1 $line) ) # ignored
+    file=$(eval echo $(extract_word 2 $line))
+    echo $mem $file >> $PRELOAD_FILE
+done < $MEM_FILE
+
+echo "Preload file:"
+cat $PRELOAD_FILE
+zRci run_hpsc.ucli | tee zrci.log
