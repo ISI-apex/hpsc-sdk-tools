@@ -83,8 +83,9 @@ done
 : "{HPPS_SMC_NAND:=}"
 
 # Files that will persist the content across runs
-: "${HPPS_NAND_FILE:=${RUN_DIR}/hpps.nand.bin}"
-: "${HPPS_SRAM_FILE:=${RUN_DIR}/hpps.sram.bin}"
+# NOTE: Zebu requires extension to be '.raw'
+: "${HPPS_NAND_FILE:=${RUN_DIR}/hpps.nand.bin.raw}"
+: "${HPPS_SRAM_FILE:=${RUN_DIR}/hpps.sram.bin.raw}"
 
 # Whether to re-initialize the image from the source file on each run
 : "${HPPS_SMC_NAND_OVERWRITE:=0}"
