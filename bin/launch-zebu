@@ -4,30 +4,122 @@ set -e
 
 SCRIPT_DIR=$(dirname ${BASH_SOURCE})
 
+function usage()
+{
+    echo "Usage: $0 [-h] [-e env]* [-m mem]  [ cmd ]" 1>&2
+    echo "               cmd: command" 1>&2
+    echo "                    run - start emulation (default)" 1>&2
+    echo "               -e env: load environment settings from file" 1>&2
+    echo "               -m memory map: preload files into memory" 1>&2
+    echo "               -h : show this message" 1>&2
+    exit 1
+}
+
+function preload_memory()
+{
+    local map_file=$1
+    local zebu_mem_file=$2
+
+    while read line
+    do
+        HASH="#"
+        if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
+        then
+            continue
+        fi
+        line=$(echo $line | sed 's/\(.*\)\s*#.*/\1/')
+
+        mem=$(eval echo $(extract_word 0 $line) )
+        # addr=$(eval echo $(extract_word 1 $line) ) # ignored
+        file=$(eval echo $(extract_word 2 $line))
+        echo $mem $file >> $zebu_mem_file
+    done < $map_file
+}
+
 source ${SCRIPT_DIR}/launch.sh
 
-MEM_FILE=$1
+: "${RUN_DIR:=.}"
+mkdir -p "${RUN_DIR}"
 
-# Must match designFeatures
-PRELOAD_FILE=preload.mem
 
-echo -n > $PRELOAD_FILE
+# Allow overriding settings (most of which settable via command line)
+ENV_FILES=("${PWD}/zebu-env.sh")
 
-while read line
+MEMORY_FILES=()
+
+while getopts "h?e:m:" o; do
+    case "${o}" in
+        e)
+            ENV_FILES+=("$OPTARG")
+            ;;
+        m)
+            MEMORY_FILES+=("$OPTARG")
+            ;;
+        h)
+            usage
+            ;;
+        *)
+            echo "Wrong option" 1>&2
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+CMD=$*
+
+if [ -z "${CMD}" ]
+then
+    CMD="run"
+fi
+
+for env in "${ENV_FILES[@]}"
 do
-    HASH="#"
-    if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
-    then
-        continue
-    fi
-    line=$(echo $line | sed 's/\(.*\)\s*#.*/\1/')
+    echo "ENV ${env}"
+    source_if_exists "${env}"
+done
 
-    mem=$(eval echo $(extract_word 0 $line) )
-    # addr=$(eval echo $(extract_word 1 $line) ) # ignored
-    file=$(eval echo $(extract_word 2 $line))
-    echo $mem $file >> $PRELOAD_FILE
-done < $MEM_FILE
+# Source files from which to init mem images (none = create blank)
+: "{HPPS_SMC_SRAM:=}"
+: "{HPPS_SMC_NAND:=}"
 
-echo "Preload file:"
+# Files that will persist the content across runs
+: "${HPPS_NAND_FILE:=${RUN_DIR}/hpps.nand.bin}"
+: "${HPPS_SRAM_FILE:=${RUN_DIR}/hpps.sram.bin}"
+
+# Whether to re-initialize the image from the source file on each run
+: "${HPPS_SMC_NAND_OVERWRITE:=0}"
+: "${HPPS_SMC_SRAM_OVERWRITE:=0}"
+
+# These are properties of the hardware design, they can't be chosen arbitrarily
+# at time of launch. They must be set in the env file. We don't provide a
+# default here, to not have to modify this script as the HW design changes.
+check_vars HPPS_NAND_SIZE HPPS_NAND_SIZE HPPS_NAND_PAGE_SIZE \
+    HPPS_NAND_PAGES_PER_BLOCK HPPS_NAND_OOB_SIZE HPPS_NAND_ECC_SIZE
+check_vars HPPS_SRAM_SIZE
+
+# Create images for off-chip memory (create blank or copy from existing).
+
+create_if_absent "${HPPS_SRAM_FILE}" "${HPPS_SMC_SRAM}" "${HPPS_SMC_SRAM_OVERWRITE}" \
+    create_sram_image "${HPPS_SRAM_SIZE}"
+create_if_absent "${HPPS_NAND_FILE}" "${HPPS_SMC_NAND}" "${HPPS_SMC_NAND_OVERWRITE}" \
+    create_nand_image "$HPPS_NAND_SIZE" "$HPPS_NAND_PAGE_SIZE" "$HPPS_NAND_PAGES_PER_BLOCK" \
+            "$HPPS_NAND_OOB_SIZE" "$HPPS_NAND_ECC_SIZE"
+
+# Must match the name in sdk/zebu/designFeatures
+PRELOAD_FILE=$ZEBU/preload.mem
+echo -n > "$PRELOAD_FILE"
+if [ ${#MEMORY_FILES[@]} -gt 0 ]
+then
+    for f in "${MEMORY_FILES[@]}"
+    do
+        preload_memory "$f" "$PRELOAD_FILE"
+    done
+fi
+echo "Zebu mem preload file:"
 cat $PRELOAD_FILE
-zRci run_hpsc.ucli | tee zrci.log
+
+# The Zebu emulator can only be invoked from the SDK dir (would be nice to fix)
+#
+# The config vars are defined in sdk/bld/env.sh. Can't define then here because
+# they are also needed to build zebu part of the SDK, so defined in sdk/Makefile.
+$ZEBU_SHELL -c "cd $ZEBU && source $ZEBU_ENV && zRci run_hpsc.ucli" | tee zrci.log

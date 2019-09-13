@@ -6,13 +6,16 @@ run() {
     "$@"
 }
 
-function check_var()
+function check_vars()
 {
-    if [ -z "${$1}" ]
-    then
-        echo "ERROR: undefined config var: $1" 2>&1
-        exit 1
-    fi
+    for v in $@
+    do
+        if [ -z "\$$v" ]
+        then
+            echo "ERROR: undefined config var: $v" 2>&1
+            exit 1
+        fi
+    done
 }
 
 function source_if_exists()
