@@ -10,11 +10,31 @@ function check_vars()
 {
     for v in $@
     do
-        if [ -z "\$$v" ]
+        if [ -z "${!v}" ]
         then
             echo "ERROR: undefined config var: $v" 2>&1
             exit 1
         fi
+    done
+}
+
+function eval_vars()
+{
+    for var in $@
+    do
+        echo $var=${!var}
+    done
+}
+
+function dump_dict()
+{
+    local dict=$1
+    # Appears to be no way to get keys from indirectly referenced assoc array
+    # without eval (in Bash <4.3, which doesn't have named references).
+    for key in $(eval "echo \${!$dict[@]}")
+    do
+        local var=${dict}[$key]
+        echo "[$key]=${!var}"
     done
 }
 
@@ -95,4 +115,31 @@ create_nand_image()
     local ecc_size=$6
     local blocks="$(nand_blocks "$size" "$page_size" "$pages_per_block")"
     run qemu-nand-creator "$page_size" "$oob_size" "$pages_per_block" "$blocks" "$ecc_size" 1 "$file"
+}
+
+function init_smc_nand_img()
+{
+    local P=$1 # name of assoc array with properties of mem image
+
+    check_vars $P[run_file] $P[size] $P[page] $P[ppb] $P[oob] $P[ecc]
+
+    # Temporary copy into a local assoc array for more convenient addressing
+    declare -A "props=($(dump_dict ${P}))"
+
+    create_if_absent "${props[run_file]}" "${props[src_file]}" "${props[overwrite]}" \
+        create_nand_image "$(numfmt --from=iec "${props[size]}")" \
+            "${props[page]}" "${props[ppb]}" "${props[oob]}" "${props[ecc]}"
+}
+
+function init_smc_sram_img()
+{
+    local P=$1 # name of assoc array with properties of mem image
+
+    check_vars $P[run_file] $P[size]
+
+    # Temporary copy into a local assoc array for more convenient addressing
+    declare -A "props=($(dump_dict $P))"
+
+    create_if_absent "${props[run_file]}" "${props[src_file]}" "${props[overwrite]}" \
+        create_sram_image "$(numfmt --from=iec "${props[size]}")"
 }
