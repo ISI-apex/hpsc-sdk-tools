@@ -117,16 +117,23 @@ create_nand_image()
     run qemu-nand-creator "$page_size" "$oob_size" "$pages_per_block" "$blocks" "$ecc_size" 1 "$file"
 }
 
+# Params for off chip mem (passed in dictionary):
+#   src: path to file from which to init mem image (none = create blank)
+#   run: path to file that will persist the content across runs
+#   overwrite: whether to copy from source file on each run
+#  size: size of memory storage array in bytes
+# (other): more image parameters (see each function)
+
 function init_smc_nand_img()
 {
     local P=$1 # name of assoc array with properties of mem image
 
-    check_vars $P[run_file] $P[size] $P[page] $P[ppb] $P[oob] $P[ecc]
+    check_vars $P[run] $P[size] $P[page] $P[ppb] $P[oob] $P[ecc]
 
     # Temporary copy into a local assoc array for more convenient addressing
     declare -A "props=($(dump_dict ${P}))"
 
-    create_if_absent "${props[run_file]}" "${props[src_file]}" "${props[overwrite]}" \
+    create_if_absent "${props[run]}" "${props[src]}" "${props[overwrite]}" \
         create_nand_image "$(numfmt --from=iec "${props[size]}")" \
             "${props[page]}" "${props[ppb]}" "${props[oob]}" "${props[ecc]}"
 }
@@ -135,11 +142,11 @@ function init_smc_sram_img()
 {
     local P=$1 # name of assoc array with properties of mem image
 
-    check_vars $P[run_file] $P[size]
+    check_vars $P[run] $P[size]
 
     # Temporary copy into a local assoc array for more convenient addressing
     declare -A "props=($(dump_dict $P))"
 
-    create_if_absent "${props[run_file]}" "${props[src_file]}" "${props[overwrite]}" \
+    create_if_absent "${props[run]}" "${props[src]}" "${props[overwrite]}" \
         create_sram_image "$(numfmt --from=iec "${props[size]}")"
 }

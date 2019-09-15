@@ -88,30 +88,24 @@ SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
 SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
 
 # Initialize defaults (env may override)
-#   src_file: file from which to init mem image (none = create blank)
-#   run_file: file that will persist the content across runs
-#           (note: Zebu requires extension '.raw' for binary format files
-#   overwrite: whether to copy from source file on each run
 #
 # No defaults for size, and for NAND layout params (page, oob, ecc, ppb),
 # because those are fixed by HW design loaded into the emulator, so we
 # let them be defined by env, so that we don't have to update this script
 # itself when the design changes.
+#
+# Note: Zebu requires binary files to have .raw extension.
 for p in $SMC_NAND_PORTS_IDXS
 do
     declare -A "HPPS_SMC_NAND_${p}=(
-        [src_file]=''
-        [run_file]='${RUN_DIR}/hpps.nand.${p}.bin.raw'
-        [overwrite]=0
+        [run]='${RUN_DIR}/hpps.nand.${p}.bin.raw'
     )"
 done
 
 for p in $SMC_SRAM_PORTS_IDXS
 do
     declare -A "HPPS_SMC_SRAM_${p}=(
-        [src_file]=''
-        [run_file]='${RUN_DIR}/hpps.sram.${p}.bin.raw'
-        [overwrite]=0
+        [run]='${RUN_DIR}/hpps.sram.${p}.bin.raw'
     )"
 done
 
