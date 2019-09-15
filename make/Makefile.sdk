@@ -281,8 +281,10 @@ $(BLD_QEMU)/config.status: | $(BLD_QEMU)/.
 		--target-list=aarch64-softmmu --enable-fdt \
 		--disable-kvm --disable-xen --enable-debug
 # TODO: add install-doc target (requires Sphynx 1.3, not in CentOS 7)
-qemu: $(BLD_QEMU)/config.status
+qemu: $(BLD_QEMU)/config.status qemu-bin
 	$(MAKE) -C $(BLD_QEMU) $(QEMU_ARGS) install
+qemu-bin: $(BLD_QEMU)/config.status
+	$(MAKE) -C $(BLD_QEMU) $(QEMU_ARGS)
 qemu-sclean:
 	$(MAKE) -C $(BLD_QEMU) $(QEMU_ARGS) clean
 qemu-clean:
