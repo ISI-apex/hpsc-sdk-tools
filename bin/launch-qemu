@@ -30,9 +30,6 @@ function finish {
 }
 trap finish EXIT
 
-# Allow overriding settings (most of which settable via command line)
-ENV_FILES=("${PWD}/qemu-env.sh")
-
 create_images()
 {
     set -e
@@ -239,6 +236,7 @@ NET=none
 MONITOR=1
 FWD_PORTS=()
 MEMORY_FILES=()
+ENV_FILES=("${PWD}/qemu-env.sh")
 
 # parse options
 while getopts "h?S?q?e:d:m:p:n:" o; do
@@ -283,7 +281,6 @@ fi
 
 for qemu_env in "${ENV_FILES[@]}"
 do
-    echo "QEMU ENV ${qemu_env}"
     source_if_exists "${qemu_env}"
 done
 
@@ -292,8 +289,6 @@ done
 
 # Memory images created by this script will go here
 : "${RUN_DIR:=.}"
-RUN=$(realpath ${RUN_DIR})
-mkdir -p "${RUN_DIR}"
 
 : "${LOG_FILE:=/tmp/qemu-$(whoami).log}"
 : "${BRIDGE:=br0}"
@@ -353,11 +348,13 @@ MAX_FWD_PORTS=4
 # Labels are created by Qemu with the convention "serialN"
 SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL_ID-hpps")
 SERIAL_PORTS=(serial0 serial1 serial2)
-SERIAL_PORT_ARGS=()
-for _ in "${SERIAL_PORTS[@]}"
-do
-    SERIAL_PORT_ARGS+=(-serial pty)
-done
+
+# May be referenced in memory map files to be loaded below
+RUN=$(realpath ${RUN_DIR})
+
+## Actions commence here
+
+mkdir -p "${RUN_DIR}"
 
 DO_RUN=0
 echo "CMD: ${CMD}"
@@ -410,6 +407,12 @@ fi
 # Note: order of -device args may matter, must load ATF last, because loader also sets PC
 # Note: If you want to see instructions and exceptions at a large performance cost, then add
 # "in_asm,int" to the list of categories in -d.
+
+SERIAL_PORT_ARGS=()
+for _ in "${SERIAL_PORTS[@]}"
+do
+    SERIAL_PORT_ARGS+=(-serial pty)
+done
 
 COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -machine "arm-generic-fdt"
