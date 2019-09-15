@@ -80,10 +80,8 @@ function source_env()
     done
 }
 
-# Get some vars from env that we need before we can actually load the env,
-# without loading the env into current shell, because loading is not idempotent.
-declare $(source_env >/dev/null && \
-          eval_vars HPPS_SMC_NAND_PORTS HPPS_SMC_SRAM_PORTS)
+HPPS_SMC_SRAM_PORTS=4
+HPPS_SMC_NAND_PORTS=2
 
 HPPS_SMC_NAND_PORTS_IDXS=$(seq 0 $(($HPPS_SMC_NAND_PORTS - 1)))
 HPPS_SMC_SRAM_PORTS_IDXS=$(seq 0 $(($HPPS_SMC_SRAM_PORTS - 1)))
