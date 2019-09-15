@@ -7,7 +7,7 @@
 #
 # Dependencies:
 #   * screen : for display of forwarded serial UART ports
-#   * Python 2: with the following modules
+#   * Python 3: with the following modules
 #      - telnetlib : for communication with Qemu via QMP interface
 #      - json : for QMP
 
