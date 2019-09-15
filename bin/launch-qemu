@@ -283,7 +283,6 @@ fi
 
 # Serial port labels are created by Qemu with the convention "serialN"
 SERIAL_PORTS=(serial0 serial1 serial2)
-SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL_ID-hpps")
 
 # Ports assumed to be the same across all SMC instances in the SoC
 SMC_SRAM_PORTS=4
@@ -296,6 +295,8 @@ SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
 #
 # Note: all are overridable in an env.sh file.
 # Note: params of array types are not overridable via environment variables.
+
+declare -A SERIAL_PORT_NAMES
 
 for p in $SMC_SRAM_PORTS_IDXS
 do
@@ -352,6 +353,10 @@ MAX_FWD_PORTS=4
 
 : "${SERIAL_ID:=$ID}"
 
+set_default SERIAL_PORT_NAMES[serial0] "lsio0"
+set_default SERIAL_PORT_NAMES[serial1] "lsio1"
+set_default SERIAL_PORT_NAMES[serial2] "hpps"
+
 # Default NV mem parameters
 #
 # Note: no defaults for size, and for NAND layout params (page, oob, ecc, ppb),
@@ -374,6 +379,12 @@ RUN=$(realpath ${RUN_DIR})
 ## Actions commence here
 
 mkdir -p "${RUN_DIR}"
+
+SCREEN_SESSIONS=()
+for p in "${SERIAL_PORTS[@]}"
+do
+    SCREEN_SESSIONS+=("hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}")
+done
 
 DO_RUN=0
 echo "CMD: ${CMD}"
