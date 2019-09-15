@@ -80,11 +80,12 @@ function source_env()
     done
 }
 
-HPPS_SMC_SRAM_PORTS=4
-HPPS_SMC_NAND_PORTS=2
+# Assumed to be the same across all SMC instances in the SoC
+SMC_SRAM_PORTS=4
+SMC_NAND_PORTS=2
 
-HPPS_SMC_NAND_PORTS_IDXS=$(seq 0 $(($HPPS_SMC_NAND_PORTS - 1)))
-HPPS_SMC_SRAM_PORTS_IDXS=$(seq 0 $(($HPPS_SMC_SRAM_PORTS - 1)))
+SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
+SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
 
 # Initialize defaults (env may override)
 #   src_file: file from which to init mem image (none = create blank)
@@ -96,7 +97,7 @@ HPPS_SMC_SRAM_PORTS_IDXS=$(seq 0 $(($HPPS_SMC_SRAM_PORTS - 1)))
 # because those are fixed by HW design loaded into the emulator, so we
 # let them be defined by env, so that we don't have to update this script
 # itself when the design changes.
-for p in $HPPS_SMC_NAND_PORTS_IDXS
+for p in $SMC_NAND_PORTS_IDXS
 do
     declare -A "HPPS_SMC_NAND_${p}=(
         [src_file]=''
@@ -105,7 +106,7 @@ do
     )"
 done
 
-for p in $HPPS_SMC_SRAM_PORTS_IDXS
+for p in $SMC_SRAM_PORTS_IDXS
 do
     declare -A "HPPS_SMC_SRAM_${p}=(
         [src_file]=''
@@ -116,11 +117,11 @@ done
 
 source_env
 
-for p in $HPPS_SMC_SRAM_PORTS_IDXS
+for p in $SMC_SRAM_PORTS_IDXS
 do
     init_smc_sram_img HPPS_SMC_SRAM_${p}
 done
-for p in $HPPS_SMC_NAND_PORTS_IDXS
+for p in $SMC_NAND_PORTS_IDXS
 do
     init_smc_nand_img HPPS_SMC_NAND_${p}
 done
