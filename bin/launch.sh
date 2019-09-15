@@ -30,7 +30,8 @@ function set_default()
 {
     local name="$1"
     local val="$2"
-    if [ -z "${!name}" ]
+    # Check for set/unset not emptiness to let empty carry meaning
+    if [ ! "${!name+_}" ]
     then
         declare -g "$name=$val"
     fi
