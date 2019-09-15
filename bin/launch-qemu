@@ -364,6 +364,13 @@ then
     CMD="run"
 fi
 
+## Configurable params of array types (must be inited before loading env)
+#
+# Note: all are overridable in an env.sh file.
+# Note: params of array types are not overridable via environment variables.
+
+declare -A SERIAL_PORT_NAMES
+
 for qemu_env in "${ENV_FILES[@]}"
 do
     echo "QEMU ENV ${qemu_env}"
@@ -509,12 +516,18 @@ MAX_FWD_PORTS=4
 
 : "${SERIAL_ID:=$ID}"
 
+# A fixed HW characteristic, not overridable
 # Labels are created by Qemu with the convention "serialN"
-SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL_ID-hpps")
 SERIAL_PORTS=(serial0 serial1 serial2)
-SERIAL_PORT_ARGS=()
-for _ in "${SERIAL_PORTS[@]}"
+
+set_default SERIAL_PORT_NAMES[serial0] "lsio0"
+set_default SERIAL_PORT_NAMES[serial1] "lsio1"
+set_default SERIAL_PORT_NAMES[serial2] "hpps"
+
+SCREEN_SESSIONS=()
+for p in "${SERIAL_PORTS[@]}"
 do
+    SCREEN_SESSIONS+=("hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}")
     SERIAL_PORT_ARGS+=(-serial pty)
 done
 
