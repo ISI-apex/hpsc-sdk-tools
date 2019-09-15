@@ -30,22 +30,6 @@ function finish {
 }
 trap finish EXIT
 
-create_images()
-{
-    set -e
-    create_if_absent "${TRCH_SRAM_FILE}" "${TRCH_SMC_SRAM}" "${TRCH_SMC_SRAM_OVERWRITE}" \
-        create_sram_image "${LSIO_SRAM_SIZE}"
-    create_if_absent "${TRCH_NAND_FILE}" "${TRCH_SMC_NAND}" "${TRCH_SMC_NAND_OVERWRITE}" \
-        create_nand_image "$TRCH_NAND_SIZE" "$TRCH_NAND_PAGE_SIZE" "$TRCH_NAND_PAGES_PER_BLOCK" \
-                "$TRCH_NAND_OOB_SIZE" "$TRCH_NAND_ECC_SIZE"
-    create_if_absent "${HPPS_SRAM_FILE}" "${HPPS_SMC_SRAM}" "${HPPS_SMC_SRAM_OVERWRITE}" \
-        create_sram_image "${HPPS_SRAM_SIZE}"
-    create_if_absent "${HPPS_NAND_FILE}" "${HPPS_SMC_NAND}" "${HPPS_SMC_NAND_OVERWRITE}" \
-        create_nand_image "$HPPS_NAND_SIZE" "$HPPS_NAND_PAGE_SIZE" "$HPPS_NAND_PAGES_PER_BLOCK" \
-                "$HPPS_NAND_OOB_SIZE" "$HPPS_NAND_ECC_SIZE"
-    set +e
-}
-
 function usage()
 {
     echo "Usage: $0 [-hSq] [-d dt_file] [-e env]* [-m mem] [-n netcfg [-p port]*] [ cmd ]" 1>&2
@@ -230,6 +214,22 @@ preload_memory()
     set +e
 }
 
+create_images()
+{
+    set -e
+    for p in $SMC_SRAM_PORTS_IDXS
+    do
+        init_smc_sram_img HPPS_SMC_SRAM_${p}
+        init_smc_sram_img LSIO_SMC_SRAM_${p}
+    done
+    for p in $SMC_NAND_PORTS_IDXS
+    do
+        init_smc_nand_img HPPS_SMC_NAND_${p}
+        init_smc_nand_img LSIO_SMC_NAND_${p}
+    done
+    set +e
+}
+
 # defaults
 RESET=1
 NET=none
@@ -279,10 +279,60 @@ then
     CMD="run"
 fi
 
+## Hardware parameters that are fixed in the HW design (not configurable)
+
+# Serial port labels are created by Qemu with the convention "serialN"
+SERIAL_PORTS=(serial0 serial1 serial2)
+SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL_ID-hpps")
+
+# Ports assumed to be the same across all SMC instances in the SoC
+SMC_SRAM_PORTS=4
+SMC_NAND_PORTS=2
+
+## Configurable params of array types (must be inited before loading env)
+#
+# Note: all are overridable in an env.sh file.
+# Note: params of array types are not overridable via environment variables.
+
+# NV mem parameters:
+#   src: path to file from which to init mem image (none = create blank)
+#   run: path to file that will persist the content across runs
+#   overwrite: whether to copy from source file on each run
+#
+# No defaults for size, and for NAND layout params (page, oob, ecc, ppb),
+# because the launch scripts are not a good place for them, because for
+# some targets they are fixed by HW design; must be defined in env file.
+
+SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
+SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
+
+for p in $SMC_SRAM_PORTS_IDXS
+do
+    declare -A "LSIO_SMC_SRAM_${p}=(
+        [run]='${RUN_DIR}/lsio.sram.${p}.bin'
+    )"
+    declare -A "HPPS_SMC_SRAM_${p}=(
+        [run]='${RUN_DIR}/hpps.sram.${p}.bin'
+    )"
+done
+for p in $SMC_NAND_PORTS_IDXS
+do
+    declare -A "LSIO_SMC_NAND_${p}=(
+        [run]='${RUN_DIR}/lsio.nand.${p}.bin'
+    )"
+    declare -A "HPPS_SMC_NAND_${p}=(
+        [run]='${RUN_DIR}/hpps.nand.${p}.bin'
+    )"
+done
+
+# Load env file which may override any of the above defaults
 for qemu_env in "${ENV_FILES[@]}"
 do
     source_if_exists "${qemu_env}"
 done
+
+## Default values for various params applied if not set (neither by the env
+# file nor by environment variables).
 
 # Privatize ports and screen sessions for this Qemu instance
 : "${ID:=0}"
@@ -298,32 +348,6 @@ done
 # Qemu device tree (e.g. generic-loader will fail to load a file that exceeds
 # this maximum, even if DT defines larger memory).
 : "${MAX_VM_MEM:=4G}"
-
-# Size of off-chip memory connected to SMC SRAM ports,
-# this size is used if/when this script creates the images.
-: "${LSIO_SRAM_SIZE:=0x04000000}"           #  64MB
-: "${HPPS_SRAM_SIZE:=0x01000000}"           #  16MB
-: "${HPPS_NAND_SIZE:=0x10000000}"           # 256MB
-: "${HPPS_NAND_PAGE_SIZE:=2048}" # bytes
-: "${HPPS_NAND_OOB_SIZE:=64}" # bytes
-: "${HPPS_NAND_ECC_SIZE:=12}" # bytes
-: "${HPPS_NAND_PAGES_PER_BLOCK:=64}" # bytes
-: "${TRCH_NAND_SIZE:=0x10000000}"           # 256MB
-: "${TRCH_NAND_PAGE_SIZE:=2048}" # bytes
-: "${TRCH_NAND_OOB_SIZE:=64}" # bytes
-: "${TRCH_NAND_ECC_SIZE:=12}" # bytes
-: "${TRCH_NAND_PAGES_PER_BLOCK:=64}" # bytes
-
-# Source files from which to init mem images (none by default)
-: "{TRCH_SMC_SRAM:=}"
-: "{TRCH_SMC_NAND:=}"
-: "{HPPS_SMC_SRAM:=}"
-: "{HPPS_SMC_NAND:=}"
-
-: "${TRCH_SRAM_FILE:=${RUN_DIR}/trch.sram.bin}"
-: "${TRCH_NAND_FILE:=${RUN_DIR}/trch.nand.bin}"
-: "${HPPS_NAND_FILE:=${RUN_DIR}/hpps.nand.bin}"
-: "${HPPS_SRAM_FILE:=${RUN_DIR}/hpps.sram.bin}"
 
 : "${MAC_ADDR:=00:0a:35:00:02:$ID}"
 # This target IP is for 'user' networking mode, where the address is private,
@@ -344,10 +368,6 @@ MAX_FWD_PORTS=4
 : "${FWD_PORT_BASE:=$((PORT_BASE + 2 * MAX_INSTANCES * MAX_FWD_PORTS + ID))}"
 
 : "${SERIAL_ID:=$ID}"
-
-# Labels are created by Qemu with the convention "serialN"
-SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL_ID-hpps")
-SERIAL_PORTS=(serial0 serial1 serial2)
 
 # May be referenced in memory map files to be loaded below
 RUN=$(realpath ${RUN_DIR})
@@ -414,6 +434,16 @@ do
     SERIAL_PORT_ARGS+=(-serial pty)
 done
 
+# TODO: support all ports in Qemu
+#for p in $SMC_SRAM_PORTS_IDXS
+#for p in $SMC_NAND_PORTS_IDXS
+#
+DRIVE_ARGS=(
+    -drive "file=${HPPS_SMC_NAND_0[run]},if=pflash,format=raw,index=3"
+    -drive "file=${HPPS_SMC_SRAM_0[run]},if=pflash,format=raw,index=2"
+    -drive "file=${LSIO_SMC_SRAM_0[run]},if=pflash,format=raw,index=0"
+)
+
 COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -machine "arm-generic-fdt"
     -m ${MAX_VM_MEM}
@@ -423,9 +453,7 @@ COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -D "${LOG_FILE}" -d "fdt,guest_errors,unimp,cpu_reset"
     -hw-dtb "${QEMU_DT_FILE}"
     "${SERIAL_PORT_ARGS[@]}"
-    -drive "file=$HPPS_NAND_FILE,if=pflash,format=raw,index=3"
-    -drive "file=$HPPS_SRAM_FILE,if=pflash,format=raw,index=2"
-    -drive "file=$TRCH_SRAM_FILE,if=pflash,format=raw,index=0"
+    "${DRIVE_ARGS[@]}"
     "${QEMU_ARGS[@]}")
 
 if [[ ! -z "${GDB_PORT}" && "${GDB_PORT}" != "none" ]] # ugly due to positive default
