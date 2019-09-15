@@ -289,40 +289,23 @@ SCREEN_SESSIONS=("hpsc-$SERIAL_ID-trch" "hpsc-$SERIAL_ID-rtps-r52" "hpsc-$SERIAL
 SMC_SRAM_PORTS=4
 SMC_NAND_PORTS=2
 
+SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
+SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
+
 ## Configurable params of array types (must be inited before loading env)
 #
 # Note: all are overridable in an env.sh file.
 # Note: params of array types are not overridable via environment variables.
 
-# NV mem parameters:
-#   src: path to file from which to init mem image (none = create blank)
-#   run: path to file that will persist the content across runs
-#   overwrite: whether to copy from source file on each run
-#
-# No defaults for size, and for NAND layout params (page, oob, ecc, ppb),
-# because the launch scripts are not a good place for them, because for
-# some targets they are fixed by HW design; must be defined in env file.
-
-SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
-SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
-
 for p in $SMC_SRAM_PORTS_IDXS
 do
-    declare -A "LSIO_SMC_SRAM_${p}=(
-        [run]='${RUN_DIR}/lsio.sram.${p}.bin'
-    )"
-    declare -A "HPPS_SMC_SRAM_${p}=(
-        [run]='${RUN_DIR}/hpps.sram.${p}.bin'
-    )"
+    declare -A LSIO_SMC_SRAM_${p}
+    declare -A HPPS_SMC_SRAM_${p}
 done
 for p in $SMC_NAND_PORTS_IDXS
 do
-    declare -A "LSIO_SMC_NAND_${p}=(
-        [run]='${RUN_DIR}/lsio.nand.${p}.bin'
-    )"
-    declare -A "HPPS_SMC_NAND_${p}=(
-        [run]='${RUN_DIR}/hpps.nand.${p}.bin'
-    )"
+    declare -A LSIO_SMC_NAND_${p}
+    declare -A HPPS_SMC_NAND_${p}
 done
 
 # Load env file which may override any of the above defaults
@@ -368,6 +351,22 @@ MAX_FWD_PORTS=4
 : "${FWD_PORT_BASE:=$((PORT_BASE + 2 * MAX_INSTANCES * MAX_FWD_PORTS + ID))}"
 
 : "${SERIAL_ID:=$ID}"
+
+# Default NV mem parameters
+#
+# Note: no defaults for size, and for NAND layout params (page, oob, ecc, ppb),
+# because the launch scripts are not a good place for them, because for some
+# targets they are fixed by HW design; must be defined in env file.
+for p in $SMC_SRAM_PORTS_IDXS
+do
+    set_default LSIO_SMC_SRAM_${p}[run] "${RUN_DIR}/lsio.sram.${p}.bin"
+    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.bin"
+done
+for p in $SMC_NAND_PORTS_IDXS
+do
+    set_default LSIO_SMC_NAND_${p}[run] "${RUN_DIR}/lsio.nand.${p}.bin"
+    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.bin"
+done
 
 # May be referenced in memory map files to be loaded below
 RUN=$(realpath ${RUN_DIR})

@@ -26,6 +26,16 @@ function eval_vars()
     done
 }
 
+function set_default()
+{
+    local name="$1"
+    local val="$2"
+    if [ -z "${!name}" ]
+    then
+        declare -g "$name=$val"
+    fi
+}
+
 function dump_dict()
 {
     local dict=$1

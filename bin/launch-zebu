@@ -4,6 +4,8 @@ set -e
 
 SCRIPT_DIR=$(dirname ${BASH_SOURCE})
 
+source ${SCRIPT_DIR}/launch.sh
+
 function usage()
 {
     echo "Usage: $0 [-h] [-e env]* [-m mem]  [ cmd ]" 1>&2
@@ -36,16 +38,8 @@ function preload_memory()
     done < $map_file
 }
 
-source ${SCRIPT_DIR}/launch.sh
-
-: "${RUN_DIR:=.}"
-RUN=$(realpath ${RUN_DIR})
-mkdir -p "${RUN_DIR}"
-
-# Allow overriding settings (most of which settable via command line)
-ENV_FILES=("${PWD}/zebu-env.sh")
-
 MEMORY_FILES=()
+ENV_FILES=("${PWD}/zebu-env.sh")
 
 while getopts "h?e:m:" o; do
     case "${o}" in
@@ -72,44 +66,60 @@ then
     CMD="run"
 fi
 
-function source_env()
-{
-    for env in "${ENV_FILES[@]}"
-    do
-        source_if_exists "${env}"
-    done
-}
+## Hardware parameters that are fixed in the HW design (not configurable)
 
-# Assumed to be the same across all SMC instances in the SoC
+# Ports assumed to be the same across all SMC instances in the SoC
 SMC_SRAM_PORTS=4
 SMC_NAND_PORTS=2
 
 SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
 SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
 
-# Initialize defaults (env may override)
+## Configurable params of array types (must be inited before loading env)
 #
-# No defaults for size, and for NAND layout params (page, oob, ecc, ppb),
-# because those are fixed by HW design loaded into the emulator, so we
-# let them be defined by env, so that we don't have to update this script
-# itself when the design changes.
-#
-# Note: Zebu requires binary files to have .raw extension.
-for p in $SMC_NAND_PORTS_IDXS
-do
-    declare -A "HPPS_SMC_NAND_${p}=(
-        [run]='${RUN_DIR}/hpps.nand.${p}.bin.raw'
-    )"
-done
+# Note: all are overridable in an env.sh file.
+# Note: params of array types are not overridable via environment variables.
 
 for p in $SMC_SRAM_PORTS_IDXS
 do
-    declare -A "HPPS_SMC_SRAM_${p}=(
-        [run]='${RUN_DIR}/hpps.sram.${p}.bin.raw'
-    )"
+    declare -A HPPS_SMC_SRAM_${p}
+done
+for p in $SMC_NAND_PORTS_IDXS
+do
+    declare -A HPPS_SMC_NAND_${p}
 done
 
-source_env
+for env in "${ENV_FILES[@]}"
+do
+    source_if_exists "${env}"
+done
+
+## Default values for various params applied if not set (neither by the env
+# file nor by environment variables). Note that environment variables take
+# precedence over env files.
+
+: "${RUN_DIR:=.}"
+
+# Default NV mem parameters (set only if not already non-zero)
+#
+# Note: no defaults for size, and for NAND layout params (page, oob, ecc, ppb),
+# because the launch scripts are not a good place for them, because for some
+# targets they are fixed by HW design; must be defined in env file.
+for p in $SMC_SRAM_PORTS_IDXS
+do
+    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.bin"
+done
+for p in $SMC_NAND_PORTS_IDXS
+do
+    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.bin"
+done
+
+# May be referenced in memory map files to be loaded below
+RUN=$(realpath ${RUN_DIR})
+
+## Actions commence here
+
+mkdir -p "${RUN_DIR}"
 
 for p in $SMC_SRAM_PORTS_IDXS
 do
