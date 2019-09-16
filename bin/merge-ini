@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import os
 import argparse
 import configparser
 
@@ -8,8 +9,55 @@ parser = argparse.ArgumentParser(
     description="Merge config files in INI format, output to stdout")
 parser.add_argument('input', nargs='+',
     help='Input files to merge in INI format')
+parser.add_argument('--output', '-o',
+    help='Output filename with the merged data in INI format (stdout if none)')
 args = parser.parse_args()
 
+base_file, overlay_files = args.input[0], args.input[1:]
+
 cfg = configparser.ConfigParser()
-cfg.read(args.input)
-cfg.write(sys.stdout)
+cfg.read(base_file)
+
+# To support append/remove we can't just cfg.read(overlay_files)
+# ConfigParser does not support += or -= so we add that support.
+for overlay_file in overlay_files:
+    overlay = configparser.ConfigParser()
+    overlay.read(overlay_file)
+
+    for sect in overlay.sections():
+        if not cfg.has_section(sect):
+            cfg.add_section(sect)
+
+        for opt in overlay.options(sect):
+            val_overlay = overlay.get(sect, opt)
+
+            if opt.endswith('+'): # +=
+                opt = opt[:-1].strip()
+                if cfg.has_option(sect, opt):
+                    val = ' '.join([cfg.get(sect, opt), val_overlay])
+                else:
+                    val = val_overlay
+            elif opt.endswith('-'): # -=
+                opt = opt[:-1].strip()
+                if cfg.has_option(sect, opt):
+                    val = ' '.join(filter(lambda x: x != val_overlay,
+                                          map(str.strip, val.split())))
+                else:
+                    val = None
+            else: # =
+                val = val_overlay
+
+            if val is not None:
+                cfg.set(sect, opt, val)
+
+if args.output:
+    outfp = open(args.output, "w")
+else:
+    outfp = sys.stdout
+
+try:
+    cfg.write(outfp)
+except: # when used from makefiles, important to not create output on failure
+    if args.output:
+        os.remove(args.output)
+    raise
