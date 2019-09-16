@@ -402,16 +402,12 @@ do
     fi
 done
 
-DO_RUN=0
-KILL_CONSOLES=1
-echo "CMD: ${CMD}"
+# Process command as far as Qemu invocation arguments are concerned
 case "${CMD}" in
-   run)
+    run)
         create_images
-        setup_console
-        DO_RUN=1
         ;;
-   gdb)
+    gdb)
         # setup/attach_consoles are called when gdb runs this script with "consoles"
         # cmd from the hook to the "run" command defined below:
 
@@ -436,19 +432,11 @@ shell "$0" ${NESTED_ARGS[@]} gdb_run
 end
 EOF
         GDB_ARGS=(gdb -x "$GDB_CMD_FILE" --args)
-        DO_RUN=1
         ;;
     gdb_run)
         create_images
-        setup_console
-        KILL_CONSOLES=0
         ;;
 esac
-
-if [ "$DO_RUN" -eq 0 ]
-then
-    exit
-fi
 
 # Compose qemu commands according to the command options.
 # Build the command as an array of strings. Quote anything with a path variable
@@ -559,5 +547,27 @@ then
 fi
 echo
 
-# Make it so!
-"${COMMAND[@]}"
+# Real actions (that may generate 'Waiting...' messages commence here)
+
+KILL_CONSOLES=1
+DO_RUN=0
+
+echo "CMD: ${CMD}"
+case "${CMD}" in
+   run)
+        setup_console
+        DO_RUN=1
+        ;;
+   gdb)
+        DO_RUN=1
+        ;;
+   gdb_run)
+        setup_console
+        KILL_CONSOLES=0
+        ;;
+esac
+
+if [ "$DO_RUN" -eq 1 ]
+then
+    "${COMMAND[@]}"
+fi
