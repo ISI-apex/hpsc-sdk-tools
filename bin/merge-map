@@ -26,6 +26,7 @@ for f in args.input:
     fin = open(f, "r")
     line_num = 0
     for line in fin:
+        line_num += 1
         line = line.strip()
         if len(line) == 0 or line.startswith('#'):
             continue
@@ -41,7 +42,6 @@ for f in args.input:
             if fname == '*':
                 fname = d[k]["fname"]
         d[k] = {"addr": addr, "fname": fname}
-        line_num += 1
     fin.close()
 
 for k in d:

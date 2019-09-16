@@ -21,6 +21,7 @@ for f in args.input:
     fin = open(f, "r")
     line_num = 0
     for line in fin:
+        line_num += 1
         line = line.strip()
         if len(line) == 0 or line.startswith('#'):
             continue
@@ -41,7 +42,6 @@ for f in args.input:
             d[k] += " " + v
         else:
             d[k] = v
-        line_num += 1
     fin.close()
 
 for k in d:
