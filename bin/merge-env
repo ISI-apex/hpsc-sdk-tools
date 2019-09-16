@@ -10,6 +10,8 @@ parser = argparse.ArgumentParser(
     description="Merge key-value environments, output to stdout")
 parser.add_argument('input', nargs='+',
     help='Input files with environments to merge')
+parser.add_argument('--output', '-o',
+    help='Output filename where to save the merged env file (stdout if none)')
 args = parser.parse_args()
 
 d = OrderedDict()
@@ -44,5 +46,15 @@ for f in args.input:
             d[k] = v
     fin.close()
 
-for k in d:
-    sys.stdout.write(k + '=' + d[k] + "\n")
+if args.output:
+    outfp = open(args.output, "w")
+else:
+    outfp = sys.stdout
+
+try:
+    for k in d:
+        outfp.write(k + '=' + d[k] + "\n")
+except: # when used from makefiles, important to not create output on failure
+    if args.output:
+        os.remove(args.output)
+    raise

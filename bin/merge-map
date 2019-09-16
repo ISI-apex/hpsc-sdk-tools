@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import os
 import argparse
 from collections import OrderedDict
 
@@ -8,6 +9,8 @@ parser = argparse.ArgumentParser(
     description="Merge memory maps, output to stdout")
 parser.add_argument('input', nargs='+',
     help='Input files with memory maps to merge')
+parser.add_argument('--output', '-o',
+    help='Output filename where to save the merged map file (stdout if none)')
 args = parser.parse_args()
 
 def write_fields(f, *fields):
@@ -44,5 +47,15 @@ for f in args.input:
         d[k] = {"addr": addr, "fname": fname}
     fin.close()
 
-for k in d:
-    write_fields(sys.stdout, k, d[k]["addr"], d[k]["fname"])
+if args.output:
+    outfp = open(args.output, "w")
+else:
+    outfp = sys.stdout
+
+try:
+    for k in d:
+        write_fields(outfp, k, d[k]["addr"], d[k]["fname"])
+except: # when used from makefiles, important to not create output on failure
+    if args.output:
+        os.remove(args.output)
+    raise
