@@ -79,7 +79,7 @@ function setup_screen()
 function serial_ptys()
 {
     qmp.py -q localhost "$QMP_PORT" query-chardev | \
-        qemu-chardev-ptys "${SERIAL_PORTS[@]}"
+        qemu-chardev-ptys "${!SCREEN_SESSIONS[@]}"
 }
 
 function attach_consoles()
@@ -88,7 +88,7 @@ function attach_consoles()
     #while test $(lsof -ti :$QMP_PORT | wc -l) -eq 0
     while true
     do
-        PTYS=$(serial_ptys 2>/dev/null)
+        PTYS="$(serial_ptys 2>/dev/null)"
         if [ -z "$PTYS" ]
         then
             #echo "Waiting for Qemu to open QMP port..."
@@ -107,18 +107,18 @@ function attach_consoles()
         fi
     done
 
-    read -r -a PTYS_ARR <<< "$PTYS"
-    for ((i = 0; i < ${#PTYS_ARR[@]}; i++))
+    declare -A "PTYS_DICT=$PTYS" # port label => desired session name
+    for p in ${!PTYS_DICT[@]}
     do
         # Need to start a new single-use $pty_sess screen session outside of the
         # persistent $sess one, then attach to $pty_sess from within $sess.
         # This is needed if $sess was previously attached, then detached (but
         # not terminated) after QEMU exited.
-        local pty=${PTYS_ARR[$i]}
-        local sess=${SCREEN_SESSIONS[$i]}
+        local pty="${PTYS_DICT[$p]}"
+        local sess="${SCREEN_SESSIONS[$p]}"
         local pty_sess="hpsc-pts$(basename "$pty")"
         local SCROLLBACK=1000000
-        echo "Adding console $pty to screen session $sess"
+        echo "Adding console $pty for port $p to screen session $sess"
         screen -d -m -S "$pty_sess" "$pty"
         screen -S "$pty_sess" -X scrollback $SCROLLBACK
         screen -S "$sess" -X scrollback $SCROLLBACK
@@ -389,10 +389,17 @@ RUN=$(realpath ${RUN_DIR})
 
 mkdir -p "${RUN_DIR}"
 
-SCREEN_SESSIONS=()
+declare -A SCREEN_SESSIONS
+SERIAL_PORT_ARGS=()
 for p in "${SERIAL_PORTS[@]}"
 do
-    SCREEN_SESSIONS+=("hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}")
+    if [ ! -z "${SERIAL_PORT_NAMES[$p]}" ] # empty name means disabled
+    then
+        SCREEN_SESSIONS[$p]="hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}"
+        SERIAL_PORT_ARGS+=(-serial pty)
+    else
+        SERIAL_PORT_ARGS+=(-serial null)
+    fi
 done
 
 DO_RUN=0
@@ -450,12 +457,6 @@ fi
 #
 # See QEMU User Guide in HPSC release for explanation of the command line
 # arguments.
-
-SERIAL_PORT_ARGS=()
-for _ in "${SERIAL_PORTS[@]}"
-do
-    SERIAL_PORT_ARGS+=(-serial pty)
-done
 
 # TODO: support all ports in Qemu
 #for p in $SMC_SRAM_PORTS_IDXS

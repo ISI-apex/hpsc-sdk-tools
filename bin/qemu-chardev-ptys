@@ -22,10 +22,13 @@ for cdev in cdevs:
         fnames[cdev[u"label"]] = cdev[u"filename"]
 #pprint.pprint(fnames)
 
+# Print out in bash assoc array syntax
+print("( ", end='')
 for label in args.args:
         fname = fnames[label]
         if not fname.startswith("pty:"):
-            raise Exception("Chardev backend is not a PTY: %s" % fname)
+            raise Exception("Chardev '%s' backend is not a PTY: %s" % \
+                            (label, fname))
         fname = fname.replace(u"pty:", u"")
-        print(fname + ' ', end='')
-print()
+        print("[%s]=%s" % (label, fname), end=' ')
+print(")")
