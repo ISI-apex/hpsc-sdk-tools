@@ -239,9 +239,10 @@ deps-centos7: | $(BLD)/.
 	sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
 	sudo yum update
 	sudo yum group install "Development Tools"
-	sudo yum install java git gtk3 chrpath texinfo screen glib2-devel libfdt-devel \
-		pixman-devel zlib-devel uboot-tools bc ncurses-devel python-configparser \
-		python36u python36u-libs python36u-devel python36u-pip pax python-sphinx \
+	sudo yum install java git gtk3 chrpath texinfo screen rsync glib2-devel \
+        libfdt-devel pixman-devel zlib-devel uboot-tools bc ncurses-devel \
+        python-configparser python36u python36u-libs python36u-devel \
+        python36u-pip pax python-sphinx \
 		guile guile-devel
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
 	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
@@ -250,7 +251,7 @@ deps-centos7: | $(BLD)/.
 .PHONY: deps-centos7
 
 deps-arch: | $(BLD)/.
-	sudo pacman -S --needed base-devel git screen python python2 \
+	sudo pacman -S --needed base-devel git screen rsync python python2 \
 		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0 \
 		chrpath cpio diffstat rpcsvc-proto
 	which pacaur # if not installed, please install pacaur manually
