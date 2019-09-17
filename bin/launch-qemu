@@ -34,6 +34,7 @@ function usage()
 {
     echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-m mem] [-n netcfg [-p port]*] [ cmd ]" 1>&2
     echo "               cmd: command" 1>&2
+    echo "                    dry - do everything except launching Qemu" 1>&2
     echo "                    run - start emulation (default)" 1>&2
     echo "                    gdb - launch the emulator in GDB" 1>&2
     echo "               -d dt_file: Qemu device tree file that defines the machine" 1>&2
@@ -404,7 +405,7 @@ done
 
 # Process command as far as Qemu invocation arguments are concerned
 case "${CMD}" in
-    run)
+    dry|run)
         create_images
         ;;
     gdb)
@@ -554,6 +555,8 @@ DO_RUN=0
 
 echo "CMD: ${CMD}"
 case "${CMD}" in
+    dry)
+        ;;
    run)
         setup_console
         DO_RUN=1
