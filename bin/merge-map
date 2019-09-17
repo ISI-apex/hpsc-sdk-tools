@@ -39,7 +39,10 @@ for f in args.input:
         k = tok[0]
         addr = tok[1]
         fname = "\t".join(tok[2:])
-        if k in d:
+        if addr == '*' or fname == '*':
+            if k not in d:
+                raise Exception(("%s:%u: key '%s' has wildcard field " + \
+                                "but is not in parent") % (f, line_num, k))
             if addr == '*':
                 addr = d[k]["addr"]
             if fname == '*':
