@@ -73,7 +73,7 @@ function setup_screen()
     if [ $? -lt 10 ]
     then
         echo "Creating screen session with console: $SESSION"
-        screen -d -m -S "$SESSION"
+        screen -h $SCREEN_SCROLLBACK -d -m -S "$SESSION"
     fi
 }
 
@@ -118,11 +118,8 @@ function attach_consoles()
         local pty="${PTYS_DICT[$p]}"
         local sess="${SCREEN_SESSIONS[$p]}"
         local pty_sess="hpsc-pts$(basename "$pty")"
-        local SCROLLBACK=1000000
         echo "Adding console $pty for port $p to screen session $sess"
-        screen -d -m -S "$pty_sess" "$pty"
-        screen -S "$pty_sess" -X scrollback $SCROLLBACK
-        screen -S "$sess" -X scrollback $SCROLLBACK
+        screen -h $SCREEN_SCROLLBACK -d -m -S "$pty_sess" "$pty"
         screen -S "$sess" -X screen screen -m -r "$pty_sess"
         sleep 1 # give the above command time to execute
         echo "Attach to screen session from another window with:"
@@ -288,6 +285,14 @@ then
     CMD="run"
 fi
 
+## Internal parameters (can be changed at will)
+
+SCREEN_SCROLLBACK=1000000 # lines in serial port screen sessions
+
+# These "limits" exist only in order to keep ports for each instance together.
+MAX_INSTANCES=8
+MAX_FWD_PORTS=4
+
 ## Hardware parameters that are fixed in the HW design (not configurable)
 
 # Serial port labels are created by Qemu with the convention "serialN"
@@ -349,11 +354,6 @@ done
 
 : "${SSH_TARGET_PORT:=22}"
 : "${DEBUG_TARGET_PORT:=2345}"
-
-# These can be increased by modifying the number here without any issue;
-# they only exist in order to keep the ports for each instance together.
-MAX_INSTANCES=8
-MAX_FWD_PORTS=4
 
 : "${PORT_BASE:=$((1024 + $(id -u) + 1000))}" # arbitrary, but unique and not system
 : "${QMP_PORT:=$((PORT_BASE + 0 * MAX_INSTANCES + ID))}"
