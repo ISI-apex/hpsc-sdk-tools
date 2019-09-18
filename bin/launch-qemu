@@ -220,8 +220,7 @@ function attach_consoles()
         local pty_sess="hpsc-pts$(basename "$pty")"
         echo "Adding console $pty for port $p to screen session $sess"
         screen -d -m -S "$pty_sess" "$pty"
-        # TODO: Make this work without using "stuff" command
-        screen -S "$sess" -X stuff "^C screen -m -r $pty_sess\r"
+        screen -S "$sess" -X screen screen -m -r "$pty_sess"
         sleep 1 # give the above command time to execute
         echo "Attach to screen session from another window with:"
         echo "  screen -r $sess"
