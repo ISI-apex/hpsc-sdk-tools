@@ -2,6 +2,20 @@
 
 set -e
 
+DONE=0
+cleanup() {
+    if [ "$LIST_ONLY" -eq 1 ]
+    then
+        return
+    fi
+	if [ "$DONE" -eq 0 ]
+	then
+		rm -f $OUT_FILE
+	fi
+}
+
+trap cleanup EXIT
+
 run() {
     echo $@
     "$@"
@@ -204,12 +218,4 @@ then
     esac
 fi
 
-cleanup() {
-    if [ $LIST_ONLY -eq 0 ]
-    then
-        return
-    fi
-    rm -f $OUT_FILE
-}
-
-trap cleanup ERR
+DONE=1
