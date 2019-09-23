@@ -107,11 +107,11 @@ done
 # targets they are fixed by HW design; must be defined in env file.
 for p in $SMC_SRAM_PORTS_IDXS
 do
-    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.bin"
+    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.raw"
 done
 for p in $SMC_NAND_PORTS_IDXS
 do
-    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.bin"
+    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.raw"
 done
 
 # May be referenced in memory map files to be loaded below
