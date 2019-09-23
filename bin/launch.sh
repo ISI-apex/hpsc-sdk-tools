@@ -112,8 +112,10 @@ function nand_blocks()
 {
     local size=$1
     local page_size=$2
-    local pages_per_block=$3
-    echo $(( size / (pages_per_block * page_size) ))
+    local oob_size=$3
+    local pages_per_block=$4
+    # TODO: -1 because qemu-nand-creator adds an extra block?
+    echo $(( size / (pages_per_block * (page_size + oob_size)) - 1))
 }
 
 create_nand_image()
@@ -124,7 +126,7 @@ create_nand_image()
     local pages_per_block=$4
     local oob_size=$5
     local ecc_size=$6
-    local blocks="$(nand_blocks "$size" "$page_size" "$pages_per_block")"
+    local blocks="$(nand_blocks "$size" "$page_size" "$oob_size" "$pages_per_block")"
     run qemu-nand-creator "$page_size" "$oob_size" "$pages_per_block" "$blocks" "$ecc_size" 1 "$file"
 }
 
