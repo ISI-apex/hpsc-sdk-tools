@@ -1,221 +1,115 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
-set -e
+import os
+import re
+import argparse
 
-DONE=0
-cleanup() {
-    if [ "$LIST_ONLY" -eq 1 ]
-    then
-        return
-    fi
-	if [ "$DONE" -eq 0 ]
-	then
-		rm -f $OUT_FILE
-	fi
-}
+from memmap import MemMap
+from inicfg import IniCfg
 
-trap cleanup EXIT
+parser = argparse.ArgumentParser(
+    description="Compose a binary memory image from files defined in a memory map")
+parser.add_argument('map_file',
+    help='Input file with memory map')
+parser.add_argument('--config', '-c', required=True,
+    help='Input file with size and layout parameters in INI format')
+parser.add_argument('--memory', '-m', required=True,
+    help='Name of memory for which to create image (a section in config file)')
+parser.add_argument('--output', '-o', required=True,
+    help='Output filename where to save the binary image')
+args = parser.parse_args()
 
-run() {
-    echo $@
-    "$@"
-}
+class MkMemImgException(Exception):
+    def __init__(self, message, line=0):
+        self.line = line
+        self.message = message
 
-extract_word() {
-    IDX=$1
-    shift
-    local i=0
-    for w in "$@"
-    do
-        if [ $i -eq $IDX ]
-        then
-            echo $w
-            return
-        fi
-        i=$(($i + 1))
-    done
-}
+def size_from_iec_str(s):
+    m = re.match(r'([0-9]+)([KMG]?)', s)
+    if not m:
+        raise MkMemImgException("size not in IEC format: '%s'" % s)
+    size = int(m.group(1))
+    suffix = m.group(2)
+    if suffix == 'G':
+        size <<= 30
+    if suffix == 'M':
+        size <<= 20
+    if suffix == 'K':
+        size <<= 10
+    return size
 
-parse_addr() {
-    echo $1 | sed 's/_//g'
-}
+def make_bin_image(fout, fmap_it, m, cgf, fmt):
+    size, = cfg.get_props(m, 'size')
+    size = size_from_iec_str(size)
+    fout.truncate(size)
+    for line, k, addr, fname in fmap_it:
+        addr = int(addr, 16)
+        fin = open(fname, "rb")
+        if fmt == "bin":
+            fout.seek(addr)
+            while True:
+                d = fin.read(4096)
+                if len(d) == 0:
+                    break
+                fout.write(d)
+        elif fmt == "vhex":
+            print("@%x" % addr, file=fout)
+            # TODO: re-use hpsc-objcopy's classes
+            raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format", line)
+        else:
+            raise MkMemImgException("unsupported image format: %s" % fmt, line)
+        fin.close()
 
-parse_size() {
-    local s="$1"
-    local mag=$(echo $s | sed 's/^\(0x\)\?[0-9]\+\([GMK]\)$/\2/')
-    local sz=$(echo $s | sed 's/^\(0x\)\?\([0-9]\+\).*/\1\2/')
-    case "$mag" in
-    G) local sh=30 ;;
-    M) local sh=20 ;;
-    K) local sh=10 ;;
-    esac
-    echo $(($sz * (1<<$sh)))
-}
+def make_nand_image(fout, fmap_it, m, cfg):
+    blocks, ppb, page, oob = cfg.get_props(m, 'blocks', 'ppb', 'page', 'oob')
+    s = int(blocks) * int(ppb) * (int(page) + int(oob))
+    print("Creating NAND image of size:", s, "bytes =", float(s) / (1<<20), " MB")
+    buf = b'\xFF' * 4096
+    while s > 0:
+        if s > len(buf):
+            fout.write(buf)
+            s -= len(buf)
+        else:
+            fout.write(b'\xFF' * s)
+            s -= s
 
-hex() {
-    printf "0x%x" $1
-}
+    for line, k, addr, fname in fmap_it:
+        addr = int(addr, 16)
+        fout.seek(addr)
+        fin = open(fname, "rb")
+        while True:
+            d = fin.read(4096)
+            if len(d) == 0:
+                break
+            fout.write(d)
 
-usage() {
-    echo "Usage: $(basename $0) [-hl] map_file output_file"
-    echo "       -l : only list input files"
-    echo "       -t : type of memory (dram,sram)"
-    echo "       -h : usage information"
-}
+try:
+    fmap = open(args.map_file, "r")
+    cfg = IniCfg(args.config)
 
-LIST_ONLY=0
-TYPE=dram
-VERBOSE=0
-while getopts "h?l?v?t:" o
-do
-    case "${o}" in
-    l)
-        LIST_ONLY=1
-        ;;
-    t)
-        TYPE="$OPTARG"
-        ;;
-    v)
-        VERBOSE=1
-        ;;
-    h)
-        usage
-        exit 0
-        ;;
-    *)
-        usage 2>&1
-        exit 1
-        ;;
-    esac
-done
-shift $((OPTIND-1))
+    fmt, = cfg.get_props(args.memory, 'image_format')
+    if fmt == "raw": # alias
+        fmt = "bin"
 
-if [ $# -lt 1 ]
-then
-    usage 2>&1
-    exit 1
-fi
+    fout = open(args.output, "wb")
+    fmap_it = MemMap.iter_mem(fmap, args.memory)
+    try:
+        if fmt in ["raw", "bin", "vhex"]:
+            make_bin_image(fout, fmap_it, args.memory, cfg, fmt)
+        elif fmt == "nand.bin":
+            make_nand_image(fout, fmap_it, args.memory, cfg)
+        else:
+            raise MkMemImgException(
+                "invalid image format for memory '%s': %s" % (args.memory, fmt))
 
-MAP_FILE=$1
-shift
+    except MkMemImgException as e:
+        raise MkMemImgException("%s:%u: %s" % (args.map_file, e.line, e.message)) from e
+    except Exception as e:
+        raise MkMemImgException("%s: exception" % (args.map_file)) from e
 
-if [ $LIST_ONLY -eq 0 ]
-then
-    if [ $# -ne 1 ]
-    then
-        usage 2>&1
-        exit 1
-    fi
-    OUT_FILE=$1
-    shift
-fi
+    fmap.close()
+    fout.close()
 
-# Note: dd seek will be at this granularity
-BLOCK_SIZE=4
-
-declare -A SEGMENT_ADDRS
-declare -A SEGMENT_FILES
-
-BASE_ADDR=
-SIZE=
-line_num=0
-while read line
-do
-    HASH="#"
-    if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
-    then
-        continue
-    fi
-
-    line=$(echo $line | sed 's/\(.*\)\s*#.*/\1/')
-
-    KEY=$(extract_word 0 $line)
-    ADDR_SPEC=$(extract_word 1 $line)
-    TOK2=$(extract_word 2 $line)
-
-    if [[ -z "$ADDR_SPEC" || -z "$TOK2" ]]
-    then
-        echo "ERROR: syntax error on line $line_num" 1>&2
-        exit 2
-    fi
-
-    ADDR_SPEC=$(echo $ADDR_SPEC | sed 's/^[0-9]\+://') # strip CPU number
-    REF_SEG=$(echo $ADDR_SPEC | sed -n 's/after(\([^)]\+\))/\1/p')
-    if [ ! -z "${REF_SEG}" ]
-    then
-        REF_SEG_ADDR=${SEGMENT_ADDRS[${REF_SEG}]}
-        REF_SEG_FILE=${SEGMENT_FILES[${REF_SEG}]}
-        ADDR=$(hex $(($REF_SEG_ADDR + $(stat -c '%s' $REF_SEG_FILE))))
-    else
-        ADDR=$(parse_addr ${ADDR_SPEC})
-    fi
-
-    SEGMENT_ADDRS["$KEY"]="$ADDR"
-
-    if [ "$KEY" = "mem" ]
-    then
-        if [ ! -z "$BASE_ADD" ]
-        then
-            echo "ERROR: duplicate mem spec: line $line_num" 1>&2
-            exit 2
-        fi
-        BASE_ADDR=$ADDR
-        SIZE_STR=$TOK2
-        SIZE=$(parse_size $SIZE_STR)
-        continue
-    fi
-
-    IN_FILE=$TOK2
-    IN_FILE=$(eval echo ${IN_FILE}) # expand vars
-    SEGMENT_FILES["$KEY"]="$IN_FILE"
-
-    if [ $LIST_ONLY -eq 1 ]
-    then
-        echo "$IN_FILE"
-        continue
-    fi
-
-    if [ -z $OUTPUT_READY ]
-    then
-        if [ -z "$SIZE" ]
-        then
-            echo "ERROR: file specs begin before mem spec" 1>&2
-            exit 2
-        fi
-        case "$TYPE" in
-        dram)
-            run truncate --size=$SIZE_STR $OUT_FILE
-            ;;
-        sram)
-	        run sram-image-utils create $OUT_FILE $SIZE
-            ;;
-        esac
-        OUTPUT_READY=1
-    fi
-
-    case "$TYPE" in
-    dram)
-        OFFSET=$(($ADDR - $BASE_ADDR))
-
-        SEEK=$(($OFFSET/$BLOCK_SIZE))
-        # dd doesn't accept hex, but we want a hex printout
-        echo DD off=$(hex $OFFSET) bs=$(hex $BLOCK_SIZE) seek=$(hex $SEEK) if=$IN_FILE
-        run dd if=$IN_FILE of=$OUT_FILE bs=$BLOCK_SIZE seek=$SEEK conv=notrunc
-        ;;
-    sram)
-	    run sram-image-utils add "$OUT_FILE" "$IN_FILE" "$KEY" ${ADDR}
-        ;;
-    esac
-    line_num=$(($line_num + 1))
-done < $MAP_FILE
-
-if [ $VERBOSE -eq 1 ]
-then
-    case "$TYPE" in
-    sram)
-        run sram-image-utils show "$OUT_FILE"
-        ;;
-    esac
-fi
-
-DONE=1
+except: # when used from makefiles, important to not create output on failure
+    os.remove(args.output)
+    raise

@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import argparse
+
+from memmap import MemMap
+
+parser = argparse.ArgumentParser(
+    description="Generate makefile rules for an image defined in memory map")
+parser.add_argument('map_file',
+    help='Input file with generic cross-platform memory map config')
+parser.add_argument('--memory', '-m',
+    help='Memory id for which to generate dependency rules')
+parser.add_argument('--image', '-i',
+    help='Name of the image that would be generated')
+parser.add_argument('--artifacts',
+    help='Name of makefile variable where to save list of artifacts')
+parser.add_argument('--output', '-o',
+    help='Output filename where to save the generated makefile rules')
+args = parser.parse_args()
+
+if args.output:
+    fout = open(args.output, "w")
+else:
+    fout = sys.stdout
+
+try:
+    fmap = open(args.map_file, "r")
+
+    artifacts = []
+    for line, m, k, addr, fname in MemMap.iter(fmap):
+        if args.memory is not None and m != args.memory:
+            continue
+        artifacts.append(fname)
+
+    if args.image:
+        MemMap.Rules.write_relations(fout, {args.image: artifacts})
+        artifacts.append(args.image)
+
+    # Include dependees into the artifact regardless whether we have the target
+    # image; even if ewe have the image, relational deps are not visible to the
+    # nested module autodetector which relies only on paths in the artifacts
+    # list (it can't walk the dep tree from within the makefile).
+
+    if args.artifacts:
+        MemMap.Rules.write_artifacts(fout, args.artifacts, artifacts)
+    fmap.close()
+    fout.close()
+
+except: # when used from makefiles, important to not create output on failure
+    if args.output:
+        os.remove(args.output)
+    raise

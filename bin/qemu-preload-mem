@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+
+from memmap import MemMap
+from inicfg import IniCfg
+
+parser = argparse.ArgumentParser(
+    description="Compose a file with Qemu arguments for reloading content into " + \
+                "memory (along with makefile rules for building the image files) " + \
+                "from a cross-platform memory map and a memory config file")
+parser.add_argument('map_file',
+    help='Input file with generic cross-platform memory map config')
+parser.add_argument('--config', '-c', required=True,
+    help='Input file with memory configuration parameters in INI format')
+parser.add_argument('--output', '-o', required=True,
+    help='Output filename where to save the command line arguments for Qemu')
+parser.add_argument('--root', '-r', default='',
+    help='Top level directory to append to relative paths of image files')
+parser.add_argument('--suffix', default='',
+    help='Suffix to append when forming filename for composite image from memory id')
+
+# For rule generation for makefiles that would assemble the image files
+parser.add_argument('--rules',
+    help='Output filename to where to optionally generate makefile rules')
+parser.add_argument('--image-dir',  default='',
+    help='Relative path to directory where images are to be created')
+parser.add_argument('--run-dir',  default='',
+    help='Relative path to directory where images are to be copied for each run')
+parser.add_argument('--artifacts',
+    help='Name of makefile variable where to save list of artifacts')
+args = parser.parse_args()
+
+class ParseException(Exception):
+    pass
+
+def abspath(p):
+    if not os.path.isabs(p):
+        return os.path.join(args.root, p)
+    return p
+
+def bld_path(fname):
+    return os.path.join(args.image_dir, fname)
+def run_path(fname):
+    return os.path.join(args.run_dir, fname)
+
+# This naming convention must be observed by whoever is assembling the actual
+# image files (e.g. makefile).
+def composite_image_name(cfg, m):
+    fmt, = cfg.get_props(m, 'image_format')
+    return m + args.suffix + '.' + fmt
+
+def issue_drive_arg(fout, cfg, m, load_file):
+    iface, fmt, idx = cfg.get_props(m, 'qemu_if', 'qemu_format', 'qemu_index')
+    drive_args = ["file=%s" % load_file, "if=%s" % iface,
+                  "format=%s" % fmt, "index=%u" % int(idx)]
+    print('-drive', ",".join(drive_args), file=fout)
+
+fout = open(args.output, "w")
+
+try:
+    cfg = IniCfg(args.config)
+    fmap = open(args.map_file, "r")
+
+    # Used for rule generation, and for guarding against duplicates
+    composite_images = {} # indexed by memory id
+    composite_artifacts = {} # indexed by (relative) image file path
+    privatized_artifacts = {} # copied from bld to run for each run (if stale)
+    prereqs = {} # unique components that are not joined into an intermediate image
+
+    for line, m, k, addr, fname in MemMap.iter(fmap):
+        try:
+            qemu_backend, = cfg.get_props(m, 'qemu_backend')
+
+            # RAM are easy because composite images are passed through to Qemu by
+            # component, without pre-assembling into an intermediate image.
+            if qemu_backend == "ram":
+                cpu_num, = cfg.get_props(m, 'qemu_cpu_num')
+                loader_args = ["loader", "file=%s" % abspath(fname),
+                               "cpu-num=%u" % int(cpu_num)]
+                if addr == MemMap.DEST_ELF: # load file according to elf header
+                    pass
+                else:
+                    base, = cfg.get_props(m, 'base')
+                    addr = int(base, 16) + int(addr, 16)
+                    loader_args += ["force-raw", "addr=0x%x" % addr]
+                print('-device', ",".join(loader_args), file=fout)
+                prereqs[fname] = True
+
+            elif qemu_backend == "drive":
+                image_file = composite_image_name(cfg, m)
+                bld_image = bld_path(image_file)
+                composite_images[m] = True
+                if bld_image not in composite_artifacts:
+                    composite_artifacts[bld_image] = []
+                    # Assume the image will be created in the run directory
+                    issue_drive_arg(fout, cfg, m, image_file)
+                composite_artifacts[bld_image].append(fname)
+                load_file = image_file
+
+            else:
+                raise ParseException("unrecognized Qemu memory type for mem %s: %s" % \
+                                (m, qemu_backend))
+        except Exception as e:
+            raise ParseException("%s:%u: exception" % (args.map_file, line)) from e
+
+    fmap.close()
+
+    # Drive memories with an index require to always have an image (unless
+    # turned off by unsetting qemu_index), even if the memory map didn't put any
+    # content into them (must create empty one).
+    #
+    # Also, drive memories are privatized (copied) to run directory on each run
+    # when the copy is stale relative to the original in the bld dir. This lets
+    # non-volatile changes persist across subsequent runs of Qemu, while at the
+    # same time updating the image upon rebuild.
+    for m in cfg.sections():
+        try:
+            backend, index = cfg.get_props(m, 'qemu_backend', 'qemu_index')
+            if backend == 'drive' and index != '':
+                image_file = composite_image_name(cfg, m)
+                bld_image = bld_path(image_file)
+                if m not in composite_images:
+                    composite_images[m] = True
+                    composite_artifacts[bld_image] = []
+                    issue_drive_arg(fout, cfg, m, image_file)
+
+                privatized_artifacts[run_path(image_file)] = [bld_image]
+        except IniCfg.CfgException:
+            pass
+
+    fout.close()
+
+except: # when used from makefiles, important to not create output on failure
+    os.remove(args.output)
+    raise
+
+if args.rules:
+    if args.artifacts is None:
+        raise Exception("missing argument: --artifacts (required with --rules)")
+    frules = open(args.rules, "w")
+    try:
+        MemMap.Rules.write_artifacts(frules, args.artifacts,
+            prereqs.keys(), composite_artifacts.keys(), privatized_artifacts.keys())
+        MemMap.Rules.write_relations(frules,
+            composite_artifacts, privatized_artifacts)
+        frules.close()
+    except: # when used from makefiles, important to not create output on failure
+        os.remove(args.rules)
+        raise

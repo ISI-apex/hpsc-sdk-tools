@@ -2,18 +2,31 @@
 
 # Construct the QEMU command line and invoke it
 #
-# Expects SDK to have been activated by loading
-# the SDK env.sh script into the shell.
+# Expects the HPSC SDK to have been activated by loading the SDK env.sh script
+# into the shell.
+#
+# The caller is expected to pass arguments that instantiate backends for
+# non-volatile memory (-drive), via command line or arg file. Note that the
+# backends are required to run at all, even if non-volatile memory is not used;
+# but to reduce duplication and factor, this script does not know how to create
+# the non-volatile images for these backends.
+#
+# The caller is also expected to pass arguments that load images into memory
+# (DRAM, on chip SRAM) -- this is not strictly required to run, but any useful
+# run would want to load some software image into memory. This functionality
+# is also kept out of this script in order to avoid parsing map files here
+# (or having an unwieldy interface based on environment variables).
+#
+# See mkmemimg script and conf/{,qemu/}mem.ini memory parameters for creating
+# memory images, and qemu-preload-mem script for interpreting cross platform
+# memory map file to know which memory images to build and what to include in
+# each of them.
 #
 # Dependencies:
 #   * screen : for display of forwarded serial UART ports
 #   * Python 3: with the following modules
 #      - telnetlib : for communication with Qemu via QMP interface
 #      - json : for QMP
-
-SCRIPT_DIR=$(dirname ${BASH_SOURCE})
-
-source ${SCRIPT_DIR}/launch.sh
 
 function finish {
     if [ -n "$GDB_CMD_FILE" ]
@@ -32,15 +45,15 @@ trap finish EXIT
 
 function usage()
 {
-    echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-m mem] [-n netcfg [-p port]*] [ cmd ]" 1>&2
+    echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-a file] [-n netcfg [-p port]*] [ cmd ]" 1>&2
     echo "               cmd: command" 1>&2
     echo "                    dry - do everything except launching Qemu" 1>&2
     echo "                    run - start emulation (default)" 1>&2
     echo "                    gdb - launch the emulator in GDB" 1>&2
+    echo "               -a file: file with arguments to add to the command line" 1>&2
     echo "               -d dt_file: Qemu device tree file that defines the machine" 1>&2
     echo "               -e env: load environment settings from file" 1>&2
     echo "               -l categories: comma-separated categories to log in Qemu log (e.g. "asm_in,int") " 1>&2
-    echo "               -m memory map: preload files into memory" 1>&2
     echo "               -n netcfg : choose networking configuration" 1>&2
     echo "                   user: forward a port on the host to the target NIC" 1>&2
     echo "                   tap: create a host tunnel interface to the target NIC (requires root)" 1>&2
@@ -50,6 +63,22 @@ function usage()
     echo "               -q : do not enable the Qemu monitor prompt" 1>&2
     echo "               -h : show this message" 1>&2
     exit 1
+}
+
+run() {
+    echo "$@"
+    "$@"
+}
+
+function set_default()
+{
+    local name="$1"
+    local val="$2"
+    # Check for set/unset not emptiness to let empty carry meaning
+    if [ ! "${!name+_}" ]
+    then
+        declare -g "$name=$val"
+    fi
 }
 
 function setup_screen()
@@ -146,106 +175,23 @@ setup_console()
     CONSOLES_PID=$!
 }
 
-preload_memory()
-{
-    set -e
-    local map_file=$1
-    echo "Preloading memory according to map file: $map_file"
-    if [ ! -r "${map_file}" ] # 'while...done < file' not fatal even with set -e
-    then
-        echo "ERROR: can't read preload memory map file: $map_file" 1>&2
-        return 1
-    fi
-    declare -A SEGMENT_ADDRS
-    declare -A SEGMENT_FILES
-    local line_num=0
-    while read line
-    do
-        local HASH="#" # workaround for vim syntax highlightin breaking
-        if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
-        then
-            continue
-        fi
-        line=$(echo "$line" | sed 's/\(.*\)\s*#.*/\1/')
-        local WORDS=($line)
-
-        local key=$(extract_word 0 "${WORDS[@]}")
-        local addr_spec=$(extract_word 1 "${WORDS[@]}")
-        local in_file=$(eval echo "$(extract_word 2 "${WORDS[@]}")") # expand vars
-
-        if [[ -z "$key" || -z "$addr_spec" || -z "$in_file" ]]
-        then
-            echo "ERROR: syntax error on line $line_num" 1>&2
-            exit 2
-        fi
-
-        # Address field can be: 0x00000000, 0x0000_0000, after(name), -, 4:<any of the above>
-        addr_spec=$(echo "$addr_spec" | sed 's/(/\[/g' | sed 's/)/\]/g') # ()->[] for eval
-        addr_spec=$(eval echo "$addr_spec")
-        addr_spec=$(echo "$addr_spec" | sed 's/_//g')
-        local cpu="$(echo "$addr_spec" | sed -n 's/^\([0-9]\+\):.*/\1/p')" # may be empty
-        addr_spec="$(echo "$addr_spec" | sed -n 's/^\([0-9]\+:\)\?\(.*\)/\2/p')"
-        local ref_seg=$(echo "$addr_spec" | sed -n 's/^after\[\([^)]\+\)\]/\1/p')
-        if [ ! -z "$ref_seg" ]
-        then
-            local addr=$(hex $((${SEGMENT_ADDRS[$ref_seg]} + $(stat -c '%s' "${SEGMENT_FILES[$ref_seg]}"))))
-        else
-            if [[ "$addr_spec" =~ - ]]
-            then  # do not supply addr
-                local addr=
-            else
-                local addr=$(parse_addr "$(echo "$addr_spec" | sed -n 's/^\(0x\)\?\([0-9A-Fa-f]\+\)/\1\2/p')")
-            fi
-        fi
-        SEGMENT_ADDRS["$key"]="$addr"
-        SEGMENT_FILES["$key"]="$in_file"
-
-        local loader_arg="loader,file=$in_file"
-        if [ ! -z "$cpu" ]
-        then
-            loader_arg+=",cpu-num=$cpu"
-        fi
-        if [ ! -z "$addr" ]
-        then
-            loader_arg+=",force-raw,addr=$addr"
-        fi
-        COMMAND+=(-device "$loader_arg")
-
-        line_num=$((line_num + 1))
-    done < "$map_file"
-    set +e
-}
-
-create_images()
-{
-    set -e
-    for p in $SMC_SRAM_PORTS_IDXS
-    do
-        init_smc_sram_img HPPS_SMC_SRAM_${p}
-        init_smc_sram_img LSIO_SMC_SRAM_${p}
-    done
-    for p in $SMC_NAND_PORTS_IDXS
-    do
-        init_smc_nand_img HPPS_SMC_NAND_${p}
-        init_smc_nand_img LSIO_SMC_NAND_${p}
-    done
-    set +e
-}
-
 # defaults
 RESET=1
 NET=none
 MONITOR=1
 FWD_PORTS=()
-MEMORY_FILES=() # order matters, since loader may also set CPU's PC
 ENV_FILES=("${PWD}/qemu-env.sh")
+ARG_FILES=()
 LOG_CATEGORIES="fdt,guest_errors,unimp,cpu_reset"
 
 # parse options
-while getopts "h?S?q?e:d:l:m:p:n:" o; do
+while getopts "h?S?q?e:d:l:a:p:n:" o; do
     case "${o}" in
         S)
             RESET=0
+            ;;
+        a)
+            ARG_FILES+=("$OPTARG")
             ;;
         d)
             QEMU_DT_FILE="$OPTARG"
@@ -258,9 +204,6 @@ while getopts "h?S?q?e:d:l:m:p:n:" o; do
             ;;
         l)
             LOG_CATEGORIES+=",$OPTARG"
-            ;;
-        m)
-            MEMORY_FILES+=("$OPTARG")
             ;;
         n)
             NET="$OPTARG"
@@ -298,35 +241,20 @@ MAX_FWD_PORTS=4
 # Serial port labels are created by Qemu with the convention "serialN"
 SERIAL_PORTS=(serial0 serial1 serial2)
 
-# Ports assumed to be the same across all SMC instances in the SoC
-SMC_SRAM_PORTS=4
-SMC_NAND_PORTS=2
-
-SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
-SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
-
 ## Configurable params of array types (must be inited before loading env)
-#
-# Note: all are overridable in an env.sh file.
-# Note: params of array types are not overridable via environment variables.
+# Note: all are overridable in an env.sh file, but not via env variables.
 
 declare -A SERIAL_PORT_NAMES
 
-for p in $SMC_SRAM_PORTS_IDXS
+# Load env file which may override some settings defaulted below
+# and set parameters also settable via the command line
+for env in "${ENV_FILES[@]}"
 do
-    declare -A LSIO_SMC_SRAM_${p}
-    declare -A HPPS_SMC_SRAM_${p}
-done
-for p in $SMC_NAND_PORTS_IDXS
-do
-    declare -A LSIO_SMC_NAND_${p}
-    declare -A HPPS_SMC_NAND_${p}
-done
-
-# Load env file which may override any of the above defaults
-for qemu_env in "${ENV_FILES[@]}"
-do
-    source_if_exists "${qemu_env}"
+    if [ -f "${env}" ]
+    then
+        echo "Loading env from: ${env}"
+        source "${env}"
+    fi
 done
 
 ## Default values for various params applied if not set (neither by the env
@@ -337,6 +265,9 @@ done
 
 # Memory images created by this script will go here
 : "${RUN_DIR:=.}"
+
+# Relative paths in memory map are relative to this
+: "${ROOT:=.}"
 
 : "${LOG_FILE:=/tmp/qemu-$(whoami).log}"
 : "${BRIDGE:=br0}"
@@ -366,25 +297,6 @@ set_default SERIAL_PORT_NAMES[serial0] "lsio0"
 set_default SERIAL_PORT_NAMES[serial1] "lsio1"
 set_default SERIAL_PORT_NAMES[serial2] "hpps"
 
-# Default NV mem parameters
-#
-# Note: no defaults for size, and for NAND layout params (page, oob, ecc, ppb),
-# because the launch scripts are not a good place for them, because for some
-# targets they are fixed by HW design; must be defined in env file.
-for p in $SMC_SRAM_PORTS_IDXS
-do
-    set_default LSIO_SMC_SRAM_${p}[run] "${RUN_DIR}/lsio.sram.${p}.bin"
-    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.bin"
-done
-for p in $SMC_NAND_PORTS_IDXS
-do
-    set_default LSIO_SMC_NAND_${p}[run] "${RUN_DIR}/lsio.nand.${p}.bin"
-    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.bin"
-done
-
-# May be referenced in memory map files to be loaded below
-RUN=$(realpath ${RUN_DIR})
-
 ## Actions commence here
 
 mkdir -p "${RUN_DIR}"
@@ -404,8 +316,7 @@ done
 
 # Process command as far as Qemu invocation arguments are concerned
 case "${CMD}" in
-    dry|run)
-        create_images
+    dry|run|gdb_run)
         ;;
     gdb)
         # setup/attach_consoles are called when gdb runs this script with "consoles"
@@ -433,9 +344,6 @@ end
 EOF
         GDB_ARGS=(gdb -x "$GDB_CMD_FILE" --args)
         ;;
-    gdb_run)
-        create_images
-        ;;
 esac
 
 # Compose qemu commands according to the command options.
@@ -446,16 +354,12 @@ esac
 # See QEMU User Guide in HPSC release for explanation of the command line
 # arguments.
 
-# TODO: support all ports in Qemu
-#for p in $SMC_SRAM_PORTS_IDXS
-#for p in $SMC_NAND_PORTS_IDXS
-#
-DRIVE_ARGS=(
-    -drive "file=${HPPS_SMC_NAND_0[run]},if=pflash,format=raw,index=3"
-    -drive "file=${HPPS_SMC_SRAM_0[run]},if=pflash,format=raw,index=2"
-    -drive "file=${LSIO_SMC_NAND_0[run]},if=pflash,format=raw,index=1"
-    -drive "file=${LSIO_SMC_SRAM_0[run]},if=pflash,format=raw,index=0"
-)
+FILE_ARGS=()
+for arg_file in "${ARG_FILES[@]}"
+do
+	echo "Loading arguments from file: ${arg_file}"
+	FILE_ARGS+=($(cat "${arg_file}"))
+done
 
 COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -machine "arm-generic-fdt"
@@ -466,7 +370,7 @@ COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -D "${LOG_FILE}" -d "$LOG_CATEGORIES"
     -hw-dtb "${QEMU_DT_FILE}"
     "${SERIAL_PORT_ARGS[@]}"
-    "${DRIVE_ARGS[@]}"
+    "${FILE_ARGS[@]}"
     "${QEMU_ARGS[@]}")
 
 if [[ ! -z "${GDB_PORT}" && "${GDB_PORT}" != "none" ]] # ugly due to positive default
@@ -516,14 +420,6 @@ esac
 if [ "$MONITOR" -eq 1 ]
 then
     COMMAND+=(-monitor stdio)
-fi
-
-if [ ${#MEMORY_FILES[@]} -gt 0 ]
-then
-    for f in "${MEMORY_FILES[@]}"
-    do
-        preload_memory "$f"
-    done
 fi
 
 echo "Final Command (one arg per line):"

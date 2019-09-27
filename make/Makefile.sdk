@@ -16,6 +16,7 @@ BLD_QEMU=$(BLD)/qemu
 INSTALL_QEMU=$(BLD)/qemu-install
 BLD_QEMU_TO_ROOT=$(BLD_TO_ROOT)/..
 SDK_TOOLS=hpsc-sdk-tools
+SDK_CONF=$(SDK_TOOLS)/conf
 SYSROOT=$(SDK_TOOLS)/sysroot
 
 # Sysroot for binary toolchains (not to be confused with hpsc-sdk-tools/sysroot)
@@ -55,6 +56,7 @@ export PATH="$(PATHS):$$PATH"
 export QEMU_DT="$(abspath $(QEMU_DT))"
 export QEMU_DT_SRC="hpsc-arch.dts"
 export QEMU_DT_FILE="$$QEMU_DT/LATEST/SINGLE_ARCH/hpsc-arch.dtb"
+export HPSC_SDK_CONF="$(abspath $(SDK_CONF))"
 export ZEBU="$(abspath $(ZEBU))"
 export ZEBU_ENV="$(abspath $(ZEBU_ENV))"
 export ZEBU_SHELL="$(ZEBU_SHELL)"

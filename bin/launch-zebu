@@ -1,44 +1,47 @@
 #!/bin/bash
 
+# Construct command to start the Zebu emulator
+#
+# Expects to be run on the Synopsys SCS Zebu server only. Will not work on any
+# other host!
+#
+# Expects the HPSC SDK to have been activated by loading the SDK env.sh script
+# into the shell.
+#
+# A screen session into the UART(s) is opened by the underlying Zebu stack
+# in sdk/zebu (and beyond), and the HPPS console is named zebu-uart-hpps.
+#
+# To load images into any memory in the design, the caller is expected to
+# construct and pass a memory map file in Zebu format, with Zebu memory IDs
+# and image files in an accepted format. The functionality of specifying which
+# images to load where and for creating images is also kept out of this script
+# in order to avoid parsing map files here (or having an unwieldy interface
+# based on environment variables).
+#
+# See the mkmemimg sript and conf/{,zebu/}/mem.ini memory parameters for
+# creating memory images, and zebu-preload-mem script for interpreting cross
+# memory map file to know which memory images to build and what to include in
+# each of them.
+
 set -e
-
-SCRIPT_DIR=$(dirname ${BASH_SOURCE})
-
-source ${SCRIPT_DIR}/launch.sh
 
 function usage()
 {
-    echo "Usage: $0 [-h] [-e env]* [-m mem]  [ cmd ]" 1>&2
+    echo "Usage: $0 [-h] [-e env]* [-m mapfile] [ cmd ]" 1>&2
     echo "               cmd: command" 1>&2
+    echo "                    dry - do everything except launching Zebu" 1>&2
     echo "                    run - start emulation (default)" 1>&2
     echo "               -e env: load environment settings from file" 1>&2
-    echo "               -m memory map: preload files into memory" 1>&2
+    echo "               -m mapfile: file specifying what to preload into memory" 1>&2
     echo "               -h : show this message" 1>&2
     exit 1
 }
 
-function preload_memory()
-{
-    local map_file=$1
-    local zebu_mem_file=$2
-
-    while read line
-    do
-        HASH="#"
-        if [[ "$line" =~ ^\s*$ || "$line" =~ ^[[:space:]]*$HASH ]]
-        then
-            continue
-        fi
-        line=$(echo $line | sed 's/\(.*\)\s*#.*/\1/')
-
-        mem=$(eval echo $(extract_word 0 $line) )
-        # addr=$(eval echo $(extract_word 1 $line) ) # ignored
-        file=$(eval echo $(extract_word 2 $line))
-        echo $mem $file >> $zebu_mem_file
-    done < $map_file
+run() {
+    echo "$@"
+    "$@"
 }
 
-MEMORY_FILES=()
 ENV_FILES=("${PWD}/zebu-env.sh")
 
 while getopts "h?e:m:" o; do
@@ -47,7 +50,7 @@ while getopts "h?e:m:" o; do
             ENV_FILES+=("$OPTARG")
             ;;
         m)
-            MEMORY_FILES+=("$OPTARG")
+            PRELOAD_MEM_MAP="${OPTARG}"
             ;;
         h)
             usage
@@ -66,32 +69,15 @@ then
     CMD="run"
 fi
 
-## Hardware parameters that are fixed in the HW design (not configurable)
-
-# Ports assumed to be the same across all SMC instances in the SoC
-SMC_SRAM_PORTS=4
-SMC_NAND_PORTS=2
-
-SMC_SRAM_PORTS_IDXS=$(seq 0 $(($SMC_SRAM_PORTS - 1)))
-SMC_NAND_PORTS_IDXS=$(seq 0 $(($SMC_NAND_PORTS - 1)))
-
-## Configurable params of array types (must be inited before loading env)
-#
-# Note: all are overridable in an env.sh file.
-# Note: params of array types are not overridable via environment variables.
-
-for p in $SMC_SRAM_PORTS_IDXS
-do
-    declare -A HPPS_SMC_SRAM_${p}
-done
-for p in $SMC_NAND_PORTS_IDXS
-do
-    declare -A HPPS_SMC_NAND_${p}
-done
-
+# Load env file which may override some settings defaulted below,
+# and set parameters also settable via the command line
 for env in "${ENV_FILES[@]}"
 do
-    source_if_exists "${env}"
+    if [ -f "${env}" ]
+    then
+        echo "Loading env from: ${env}"
+        source "${env}"
+    fi
 done
 
 ## Default values for various params applied if not set (neither by the env
@@ -100,51 +86,40 @@ done
 
 : "${RUN_DIR:=.}"
 
-# Default NV mem parameters (set only if not already non-zero)
-#
-# Note: no defaults for size, and for NAND layout params (page, oob, ecc, ppb),
-# because the launch scripts are not a good place for them, because for some
-# targets they are fixed by HW design; must be defined in env file.
-for p in $SMC_SRAM_PORTS_IDXS
-do
-    set_default HPPS_SMC_SRAM_${p}[run] "${RUN_DIR}/hpps.sram.${p}.raw"
-done
-for p in $SMC_NAND_PORTS_IDXS
-do
-    set_default HPPS_SMC_NAND_${p}[run] "${RUN_DIR}/hpps.nand.${p}.raw"
-done
-
-# May be referenced in memory map files to be loaded below
-RUN=$(realpath ${RUN_DIR})
-
 ## Actions commence here
 
 mkdir -p "${RUN_DIR}"
 
-for p in $SMC_SRAM_PORTS_IDXS
-do
-    init_smc_sram_img HPPS_SMC_SRAM_${p}
-done
-for p in $SMC_NAND_PORTS_IDXS
-do
-    init_smc_nand_img HPPS_SMC_NAND_${p}
-done
-
+# The map file needs to be copied into the sdk directory for zebu scripts to
+# pick it up, unfortunately. Couldn't figure out a way to parametrize.
 # Must match the name in sdk/zebu/designFeatures
-PRELOAD_FILE=$ZEBU/preload.mem
-echo -n > "$PRELOAD_FILE"
-if [ ${#MEMORY_FILES[@]} -gt 0 ]
+ZEBU_LOAD_MEM_FILE=$ZEBU/preload.mem
+if [ ! -z "${PRELOAD_MEM_MAP}" ]
 then
-    for f in "${MEMORY_FILES[@]}"
-    do
-        preload_memory "$f" "$PRELOAD_FILE"
-    done
+    run cp "${PRELOAD_MEM_MAP}" "${ZEBU_LOAD_MEM_FILE}"
+else
+    run truncate --size 0 "${ZEBU_LOAD_MEM_FILE}"
 fi
-echo "Zebu mem preload file:"
-cat $PRELOAD_FILE
+echo "Zebu memory preload file:"
+cat "${ZEBU_LOAD_MEM_FILE}"
+echo
 
 # The Zebu emulator can only be invoked from the SDK dir (would be nice to fix)
 #
 # The config vars are defined in sdk/bld/env.sh. Can't define then here because
 # they are also needed to build zebu part of the SDK, so defined in sdk/Makefile.
-$ZEBU_SHELL -c "cd $ZEBU && source $ZEBU_ENV && zRci run_hpsc.ucli" | tee zrci.log
+COMMAND+=($ZEBU_SHELL -c "cd $ZEBU && source $ZEBU_ENV && zRci run_hpsc.ucli")
+echo "Final command: ${COMMAND[@]}"
+
+echo "CMD: ${CMD}"
+case "${CMD}" in
+    dry)
+        ;;
+    run)
+        "${COMMAND[@]}"
+        ;;
+    *)
+        echo "Unknown command: ${CMD}" 1>&2
+        exit 1
+        ;;
+esac
