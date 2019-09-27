@@ -7,8 +7,8 @@ from collections import OrderedDict
 
 parser = argparse.ArgumentParser(
     description="Merge memory maps, output to stdout")
-parser.add_argument('input', nargs='+',
-    help='Input files with memory maps to merge')
+parser.add_argument('input', nargs='*',
+    help='Input files with memory maps to merge (blank output if none)')
 parser.add_argument('--output', '-o',
     help='Output filename where to save the merged map file (stdout if none)')
 args = parser.parse_args()
