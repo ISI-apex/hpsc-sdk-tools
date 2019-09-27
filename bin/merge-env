@@ -24,8 +24,8 @@ for f in args.input:
     line_num = 0
     for line in fin:
         line_num += 1
-        line = line.strip()
-        if len(line) == 0 or line.startswith('#'):
+        line = re.sub(r'\s*#.*', '', line.strip())
+        if len(line) == 0:
             continue
         tok = line.split('=')
         v = "=".join(tok[1:]) # we only want one split (no maxsplit arg in PY2)
