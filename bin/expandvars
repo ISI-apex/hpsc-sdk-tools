@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import argparse
+import re
+
+parser = argparse.ArgumentParser(
+    description="Replaces identifiers with env var values in files")
+parser.add_argument('input', nargs="*",
+    help='Input files in which to perform replacements')
+parser.add_argument('--output', '-o',
+    help='Output filename with the merged data in INI format (stdout if none)')
+parser.add_argument('--regexp', '-e',
+    default=re.compile(r'\${?([A-Za-z0-9_]+)}?'),
+    type=re.compile,
+    help='Regular expression to match the indentifer and extract variable name')
+parser.add_argument('--empty', action='store_true',
+    help='Use the empty string as the value for unset variables')
+args = parser.parse_args()
+
+class ResolveException(Exception):
+    def __init__(self, fname, line, ident, var):
+        self.fname = fname
+        self.line = line
+        self.ident = ident
+        self.var = var
+        self.message = \
+            "ERROR: %s:%u: env variable '%s' from '%s' unset" \
+            % (fname, line, var, ident)
+
+def fail(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+def replace(m):
+    var = m.group(1)
+    val = os.getenv(var)
+    if val is not None:
+        return val
+    if args.empty:
+        return ""
+    raise ResolveException("", 0, m.group(), var)
+
+def process_file(fin_name, fin, fout, expr):
+    line_num = 0
+    for line in fin:
+        line_num += 1
+        try:
+            fout.write(expr.sub(replace, line))
+        except ResolveException as e:
+            raise ResolveException(fin_name, line_num, e.ident, e.var)
+
+e = args.regexp
+if e.groups != 1:
+    fail("ERROR: regexp has %u groups (expected 1)\n" % e.groups);
+
+try:
+    try:
+        fout = open(args.output, "w") if args.output else sys.stdout
+        if len(args.input) == 0:
+            process_file("<stdin>", sys.stdin, fout, e)
+        for fname in args.input:
+            fin = open(fname, "r")
+            process_file(fname, fin, fout, e)
+    except:
+        if args.output:
+            os.remove(args.output)
+        raise
+except ResolveException as e:
+    fail(e.message)
+except:
+    raise
