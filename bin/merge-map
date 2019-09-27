@@ -26,6 +26,7 @@ def write_fields(f, *fields):
     f.write("\n")
 
 d = OrderedDict()
+origin = {}
 for f in args.input:
     fin = open(f, "r")
     line_num = 0
@@ -51,6 +52,8 @@ for f in args.input:
                 fname = d[k]["fname"]
         if m not in d:
             d[m] = OrderedDict()
+            origin[m] = {}
+        origin[m][k] = f
         d[m][k] = {"addr": addr, "fname": fname}
     fin.close()
 
@@ -62,6 +65,7 @@ else:
 try:
     for m in d:
         for k in d[m]:
+            print('# SOURCE:', origin[m][k], file=outfp)
             write_fields(outfp, m, k, d[m][k]["addr"], d[m][k]["fname"])
 except: # when used from makefiles, important to not create output on failure
     if args.output:
