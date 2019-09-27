@@ -77,7 +77,7 @@ void file_show (char * fname)
     }
 }
 
-void sram_file_create (char * fname, uint32_t fsize)
+int sram_file_create (char * fname, uint32_t fsize)
 {
     char buffer[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     uint32_t i, rem;
@@ -86,7 +86,7 @@ void sram_file_create (char * fname, uint32_t fsize)
     FILE * fp = fopen(fname, "wb");
     if (!fp) {
         fprintf(stderr, "error: failed to open '%s': %s\n", fname, strerror(errno));
-        exit(1);
+        return 1;
     }
 
     /* high_mark_fd: end of file 
@@ -110,10 +110,11 @@ void sram_file_create (char * fname, uint32_t fsize)
     fseek(fp, 0L, SEEK_SET);
     fwrite(ptr, sizeof(gt), 1, fp);
     fclose(fp);
+    return 0;
 }
 
 #define BUF_SIZE 256
-void file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_addr64)
+int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_addr64)
 {
     FILE *fsram, *f2add;
     uint32_t i, fsize, offset, rem, iter, load_addr_low, load_addr_high;
@@ -125,13 +126,13 @@ void file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_ad
     fsram = fopen(fname, "r+b");
     if (!fsram) {
         fprintf(stderr, "error: failed to open '%s': %s\n", fname, strerror(errno));
-        exit(1);
+        return 1;
     }
 
     f2add = fopen(fname_add, "rb");
     if (!f2add) {
         fprintf(stderr, "error: failed to open '%s': %s\n", fname_add, strerror(errno));
-        exit(1);
+        return 1;
     }
 
     /* read global table and file descriptors */
@@ -145,7 +146,7 @@ void file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_ad
     fsize = ftell(f2add);
     if (fsize > gt.low_mark_data - gt.high_mark_fd) {
         printf("Error: file is too big to add\n");
-        exit(1);
+        return 1;
     }
     offset = gt.low_mark_data - fsize;
     while (offset & ((1 << (ALIGNMENT_BITS)) - 1))
@@ -186,6 +187,7 @@ void file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_ad
     free(fd_buf); 
     fclose(fsram);
     fclose(f2add);
+    return 0;
 }
 
 void ram_write (unsigned char * buffer, uint32_t count, uint64_t address) {
@@ -252,8 +254,7 @@ int main (int argc, char ** argv)
                      fsize = strtoul(argv[3], &stopstring, 16);
                  else 
                      fsize = strtoul(argv[3], &stopstring, 10);
-                 sram_file_create(fname_sram, fsize);
-                 break;
+                 return sram_file_create(fname_sram, fsize);
         case 'a': /* add a file to the image */
                  if (argc != 6) { usage(argv[0]); }
                  fname_sram = argv[2];
@@ -263,8 +264,7 @@ int main (int argc, char ** argv)
                      load_addr64 = strtoul(argv[5], &stopstring, 16);
                  else
                      load_addr64 = strtoul(argv[5], &stopstring, 10);
-                 file_add(fname_sram, fname_add, fname_id, load_addr64);
-                 break;
+                 return file_add(fname_sram, fname_add, fname_id, load_addr64);
         case 's': /* show the header information */
                  if (argc != 3) { usage(argv[0]); }
                  fname_sram = argv[2];
