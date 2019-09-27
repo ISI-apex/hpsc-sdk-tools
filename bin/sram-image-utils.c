@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include "sram-image-utils.h"
@@ -15,6 +16,14 @@
 #endif
 
 #define ALIGNMENT_BITS 8 /* align files to 256-byte boundary, for DMA tx */
+#define MAX_PATH_LEN 255
+#define MAX_IEC_SIZE_LEN  15
+
+#define _STR_FMT(s) "%" #s "s"
+#define STR_FMT(s) _STR_FMT(s)
+
+static int file_add (char * fname, char * fname_add,
+                     char * fname_id, uint64_t load_addr64);
 
 global_table gt;
 
@@ -110,6 +119,65 @@ int sram_file_create (char * fname, uint32_t fsize)
     fseek(fp, 0L, SEEK_SET);
     fwrite(ptr, sizeof(gt), 1, fp);
     fclose(fp);
+    return 0;
+}
+
+/* like: numfmt --from=iec */
+static int iectoull(uint64_t *n, const char *str)
+{
+    unsigned num_toks;
+    char suffix;
+    /* expected from caller: str has no trailing whitespace */
+    num_toks = sscanf(str, "%llu%c", n, &suffix);
+    if (num_toks > 1) {
+        switch (suffix) {
+            case 'G': *n <<= 10; /* fall-through */
+            case 'M': *n <<= 10; /* fall-through */
+            case 'K': *n <<= 10;
+                      break;
+            default:
+                      fprintf(stderr, "error: invalid IEC suffix '%c' "
+                              "(not in {K,M,G})\n", suffix);
+                      return 1;
+        }
+    }
+    return 0;
+}
+
+static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fname_map)
+{
+    FILE *fmap = fopen(fname_map, "r");
+    char *line = NULL;
+    size_t line_size = 0;
+    ssize_t line_len = 0;
+    unsigned line_num = 0;
+    char mem_id[MAX_PATH_LEN + 1]; /* ignored, part of general mem map format */
+    char file_id[MAX_PATH_LEN + 1];
+    char file_path[MAX_PATH_LEN + 1];
+    uint64_t file_addr;
+
+    if (sram_file_create(fname, mem_size)) {
+        return 1;
+    }
+
+    while ((line_len = getline(&line, &line_size, fmap)) != -1) {
+        ++line_num;
+        if (line_len == 0 || line[0] == '#' ||
+            ((line_len == 1 || (line_len == 2 && line[line_len - 2] == '\r') &&
+             line[line_len - 1] == '\n'))) {
+            continue;
+        }
+        if (sscanf(line, STR_FMT(MAX_PATH_LEN) STR_FMT(MAX_PATH_LEN)
+                         " %llx " STR_FMT(MAX_PATH_LEN),
+                   &mem_id, &file_id, &file_addr, &file_path) != 4) {
+            fprintf(stderr, "error: %s:%u: syntax error\n", fname_map, line_num);
+            return 1;
+        }
+        if (file_add(fname, file_path, file_id, file_addr)) {
+            return 1;
+        }
+    }
+    fclose(fmap);
     return 0;
 }
 
@@ -239,9 +307,11 @@ void file_load_all(char * fname)
 
 int main (int argc, char ** argv)
 {
-    char *fname_sram, *fname_add, *fname_id, *stopstring;
+    char *fname_sram, *fname_map, *fname_add, *fname_id, *fsize_str, *stopstring;
     uint32_t fsize;
     uint64_t load_addr64;
+    uint64_t val;
+    int rc;
 
     if (argc < 2) {
         usage(argv[0]);
@@ -265,6 +335,27 @@ int main (int argc, char ** argv)
                  else
                      load_addr64 = strtoul(argv[5], &stopstring, 10);
                  return file_add(fname_sram, fname_add, fname_id, load_addr64);
+        case 'm': /* create file system image from map specification file */
+			if (argc != 5) { usage(argv[0]); }
+				fname_sram = argv[2];
+                fsize_str = argv[3];
+				fname_map = argv[4];
+                if (fsize_str[0] == '0' && fsize_str[1] == 'x')  {
+                    fsize = strtoul(fsize_str, &stopstring, 16);
+                } else  {
+                    if (iectoull(&val, fsize_str))
+                       return 1;
+                    if (val >> 32) {
+                       fprintf(stderr, "ERROR: mem size larger than 32-bit: %s\n",
+                               fsize_str);
+                       return 1;
+                    }
+                    fsize = val;
+                }
+				if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map))) {
+                    unlink(fname_sram);
+                }
+                return rc;
         case 's': /* show the header information */
                  if (argc != 3) { usage(argv[0]); }
                  fname_sram = argv[2];
