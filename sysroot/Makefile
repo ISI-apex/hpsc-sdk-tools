@@ -109,6 +109,7 @@ DEPS_TOOL=\
 	make \
 	pkgconfig \
 	patchelf \
+	rsync \
 
 # Python packages
 #
@@ -254,6 +255,10 @@ VER_patchelf=0.9
 URL_patchelf=https://nixos.org/releases/patchelf/patchelf-$(VER_patchelf)
 ART_patchelf=$(BIN)/patchelf
 
+VER_rsync=3.1.3
+URL_rsync=https://download.samba.org/pub/rsync
+ART_rsync=$(BIN)/rsync
+
 # Python packages
 
 VER_setuptools=40.8.0
@@ -394,8 +399,9 @@ $(ART_curl) \
 $(ART_texinfo) \
 $(ART_make) \
 $(ART_git) \
-$(ART_patchelf): \
-| $(ART_pkgconfig)
+$(ART_patchelf) \
+$(ART_rsync) \
+: | $(ART_pkgconfig)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
