@@ -142,7 +142,7 @@ $(ART_gdb):
 		--enable-targets=arm-none-eabi,aarch64-none-linux-,x86_64-none-linux- \
 		--enable-languages=c \
 		--enable-multilib --enable-interwork --disable-nls \
-		--with-python=/usr/bin/python3 --with-guile=guile-2.0
+		--with-python=$$(which python3) --with-guile=no
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
