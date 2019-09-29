@@ -118,6 +118,7 @@ function attach_consoles()
     #while test $(lsof -ti :$QMP_PORT | wc -l) -eq 0
     while true
     do
+        sleep 2 # if we connect to QMP too early, qmp.py hangs
         PTYS="$(serial_ptys 2>/dev/null)"
         if [ -z "$PTYS" ]
         then
