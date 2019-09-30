@@ -22,31 +22,33 @@ parser.add_argument('host',
     help='Qemu QMP Telnet server hostname')
 parser.add_argument('port', type=int,
     help='Qemu QMP Telnet server port')
-parser.add_argument('cpu', type=int_autobase,
+parser.add_argument('--input', '-i',
+    help='File which to load into the target')
+parser.add_argument('--output', '-o',
+    help='File where to save the dump (stdout if none)')
+parser.add_argument('--cpu', type=int_autobase,
     help='CPU index from which to access memory')
-parser.add_argument('address', type=int_autobase,
-    help='Address where to begin dumping')
+parser.add_argument('--buffer-at', type=int_autobase, required=True,
+    help='Address of the buffer for input and output data')
+parser.add_argument('--length', type=int_autobase,
+    help='Address where the size of the input or output data is stored as a string')
+parser.add_argument('--length-at', type=int_autobase,
+    help='Address where the size of the input or output data is stored as a string')
 parser.add_argument('--done-at', type=int_autobase,
     help='Wait for a done marker to appear at this address')
 parser.add_argument('--done-pattern',
     help='Done pattern to wait for')
 parser.add_argument('--check-interval', type=int, default=5,
     help='Frequency of checking for done signal (in seconds)')
-parser.add_argument('--length', type=int_autobase,
-    help='Length of data to dump')
-parser.add_argument('--length-at', type=int_autobase,
-    help='Get the size to dump by reading a number as string from this address')
-parser.add_argument('--output', '-o',
-    help='File where to save the dump (stdout if none)')
 parser.add_argument('--owner-pid', type=int,
     help='PID of a process that limits the lifetime of this script')
-parser.add_argument('--cont', action='store_true',
-    help='Send the continue command to Qemu after connecting over QMP')
 parser.add_argument('--quit', action='store_true',
     help='Send the quit command to Qemu after dump is complete')
 parser.add_argument('--verbose', '-v', action='store_true',
     help='Print requests and replies')
 args = parser.parse_args()
+
+MAX_INT_LEN = 32 # string repr of a 64-bit integer (with margin)
 
 def pid_exists(pid):
     try:
@@ -62,8 +64,26 @@ def do_dump(cpu, addr, length, file):
             "val": addr,
             "size": length,
             "cpu-index": cpu,
-            "filename": file,
+            "filename": os.path.abspath(file),
         })
+
+def do_load(cpu, addr, file):
+    return qmp.command("pmemload",
+        **{
+            "val": addr,
+            "cpu-index": cpu,
+            "filename": os.path.abspath(file),
+        })
+
+def load_str(cpu, addr, val):
+    tmpout = tempfile.NamedTemporaryFile(mode="w")
+    tmpout.write(val)
+    tmpout.flush()
+    do_load(cpu, addr, tmpout.name)
+    tmpout.close()
+
+def load_int(cpu, addr, num):
+    load_str(cpu, addr, ("%" + str(MAX_INT_LEN) + "s") % num)
 
 def dump_str(cpu, addr, length):
     tmpout = tempfile.NamedTemporaryFile(delete=False)
@@ -71,15 +91,15 @@ def dump_str(cpu, addr, length):
     try:
         do_dump(cpu, addr, length, tmpout.name)
         tmpin = open(tmpout.name, "r")
-        val = tmpin.read()
+        int_str = tmpin.read()
         tmpin.close()
     finally:
         os.unlink(tmpout.name)
-    return val
+    return int_str
 
 def dump_int(cpu, addr):
-    max_int_length = 32 # string repr of a 64-bit integer (with margin)
-    return int_autobase(dump_str(cpu, addr, max_int_length))
+    return int_autobase(dump_str(cpu, addr, MAX_INT_LEN))
+
 
 def print_wait(last_wait_print, msg):
     if time.time() - last_wait_print > 10:
@@ -125,14 +145,20 @@ while True:
             raise
         time.sleep(args.check_interval)
 
-# There can only be one QMP client (apparently?), so we have to issue continue
-if args.cont:
-    print("%s: sending continue command" % tool)
-    qmp.command("cont")
+if args.input:
+    print("%s: loading file %s via CPU %u to 0x%x" % \
+          (sys.argv[0], args.input, args.cpu, args.buffer_at))
+    do_load(args.cpu, args.buffer_at, args.input)
+    if args.length_at is not None:
+        fsize = os.path.getsize(args.input)
+        load_int(args.cpu, args.length_at, fsize)
+
+print("%s: sending continue command" % tool)
+qmp.command("cont")
 
 # Wait for done marker to be written by the target
 while args.done_at:
-    #qmp.verbose = False
+    qmp.verbose = False
     limit_lifetime(tool, args.owner_pid)
 
     s = dump_str(args.cpu, args.done_at, len(args.done_pattern))
@@ -161,8 +187,8 @@ else:
     fout = sys.stdout
 
 print("%s: dumping %u (0x%x) bytes via CPU %u at 0x%x to %s" % \
-      (sys.argv[0], length, length, args.cpu, args.address, out_fname))
-do_dump(args.cpu, args.address, length, out_fname)
+      (sys.argv[0], length, length, args.cpu, args.buffer_at, out_fname))
+do_dump(args.cpu, args.buffer_at, length, out_fname)
 
 if args.quit:
     qmp.command("quit")
