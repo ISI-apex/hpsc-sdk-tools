@@ -60,7 +60,7 @@ do
 
     if grep -q "$DONE_PATTERN" "$DONE_FILE"
     then
-        "$@"
+        bash -c "$*"
         exit 0
     fi
     sleep 5
