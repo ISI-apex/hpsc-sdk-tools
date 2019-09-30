@@ -30,6 +30,10 @@ parser.add_argument('--cpu', type=int_autobase,
     help='CPU index from which to access memory')
 parser.add_argument('--buffer-at', type=int_autobase, required=True,
     help='Address of the buffer for input and output data')
+parser.add_argument('--offset-at', type=int_autobase,
+    help='Address of the buffer for input and output data')
+parser.add_argument('--offset', type=int_autobase, default=0,
+    help='Offset of input data in the buffer')
 parser.add_argument('--length', type=int_autobase,
     help='Address where the size of the input or output data is stored as a string')
 parser.add_argument('--length-at', type=int_autobase,
@@ -113,12 +117,8 @@ def limit_lifetime(tool, owner_pid):
         # print("%s: owner (pid %u) dead: exiting" % (tool, owner_pid))
         sys.exit(1)
 
-if args.length is not None and args.length_at is not None:
-    print("ERROR: conflicting argument: cannot have both length and --length-at",
-          file=sys.stderr)
-    sys.exit(1)
 if args.length is None and args.length_at is None:
-    print("ERROR: missing argument: need either length or --length-at",
+    print("ERROR: missing argument: need --length or --length-at or both",
           file=sys.stderr)
     sys.exit(1)
 if args.done_at is not None and args.done_pattern is None:
@@ -150,8 +150,13 @@ if args.input:
           (sys.argv[0], args.input, args.cpu, args.buffer_at))
     do_load(args.cpu, args.buffer_at, args.input)
     if args.length_at is not None:
-        fsize = os.path.getsize(args.input)
-        load_int(args.cpu, args.length_at, fsize)
+        if args.length is not None:
+            length = args.length
+        else:
+            length = os.path.getsize(args.input)
+        load_int(args.cpu, args.length_at, length)
+    if args.offset_at is not None:
+        load_int(args.cpu, args.offset_at, args.offset)
 
 print("%s: sending continue command" % tool)
 qmp.command("cont")
@@ -173,10 +178,15 @@ while args.done_at:
              (tool, args.done_pattern, args.done_at, s))
         time.sleep(args.check_interval)
 
-if args.length is not None:
-    length = args.length
-elif args.length_at is not None:
+if args.length_at is not None:
     length = dump_int(args.cpu, args.length_at)
+elif args.length is not None:
+    length = args.length
+
+if args.offset_at is not None:
+    offset = dump_int(args.cpu, args.offset_at)
+elif args.length is not None:
+    offset = args.offset
 
 if args.output is not None:
     out_fname = args.output
@@ -187,8 +197,8 @@ else:
     fout = sys.stdout
 
 print("%s: dumping %u (0x%x) bytes via CPU %u at 0x%x to %s" % \
-      (sys.argv[0], length, length, args.cpu, args.buffer_at, out_fname))
-do_dump(args.cpu, args.buffer_at, length, out_fname)
+      (sys.argv[0], length, length, args.cpu, args.buffer_at + offset, out_fname))
+do_dump(args.cpu, args.buffer_at + offset, length, out_fname)
 
 if args.quit:
     qmp.command("quit")
