@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import re
+import tempfile
+import time
+import argparse
+
+from qmp import QMP
+
+def int_autobase(val):
+    if val.startswith("0x"):
+        return int(val, 16)
+    if re.match(r'0[0-9]+', val):
+        return int(val, 8)
+    return int(val, 10)
+
+parser = argparse.ArgumentParser(
+    description="Optionally wait for a done signal at a memory location then dump a buffer")
+parser.add_argument('host',
+    help='Qemu QMP Telnet server hostname')
+parser.add_argument('port', type=int,
+    help='Qemu QMP Telnet server port')
+parser.add_argument('cpu', type=int_autobase,
+    help='CPU index from which to access memory')
+parser.add_argument('address', type=int_autobase,
+    help='Address where to begin dumping')
+parser.add_argument('--done-at', type=int_autobase,
+    help='Wait for a done marker to appear at this address')
+parser.add_argument('--done-pattern',
+    help='Done pattern to wait for')
+parser.add_argument('--check-interval', type=int, default=5,
+    help='Frequency of checking for done signal (in seconds)')
+parser.add_argument('--length', type=int_autobase,
+    help='Length of data to dump')
+parser.add_argument('--length-at', type=int_autobase,
+    help='Get the size to dump by reading a number as string from this address')
+parser.add_argument('--output', '-o',
+    help='File where to save the dump (stdout if none)')
+parser.add_argument('--owner-pid', type=int,
+    help='PID of a process that limits the lifetime of this script')
+parser.add_argument('--cont', action='store_true',
+    help='Send the continue command to Qemu after connecting over QMP')
+parser.add_argument('--quit', action='store_true',
+    help='Send the quit command to Qemu after dump is complete')
+parser.add_argument('--verbose', '-v', action='store_true',
+    help='Print requests and replies')
+args = parser.parse_args()
+
+def pid_exists(pid):
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+def do_dump(cpu, addr, length, file):
+    return qmp.command("pmemsave",
+        **{
+            "val": addr,
+            "size": length,
+            "cpu-index": cpu,
+            "filename": file,
+        })
+
+def dump_str(cpu, addr, length):
+    tmpout = tempfile.NamedTemporaryFile(delete=False)
+    tmpout.close()
+    try:
+        do_dump(cpu, addr, length, tmpout.name)
+        tmpin = open(tmpout.name, "r")
+        val = tmpin.read()
+        tmpin.close()
+    finally:
+        os.unlink(tmpout.name)
+    return val
+
+def dump_int(cpu, addr):
+    max_int_length = 32 # string repr of a 64-bit integer (with margin)
+    return int_autobase(dump_str(cpu, addr, max_int_length))
+
+def print_wait(last_wait_print, msg):
+    if time.time() - last_wait_print > 10:
+        print(msg)
+        last_wait_print = time.time()
+    return last_wait_print
+
+def limit_lifetime(tool, owner_pid):
+    # Limit lifetime to owner
+    if owner_pid is not None and not pid_exists(owner_pid):
+        # print("%s: owner (pid %u) dead: exiting" % (tool, owner_pid))
+        sys.exit(1)
+
+if args.length is not None and args.length_at is not None:
+    print("ERROR: conflicting argument: cannot have both length and --length-at",
+          file=sys.stderr)
+    sys.exit(1)
+if args.length is None and args.length_at is None:
+    print("ERROR: missing argument: need either length or --length-at",
+          file=sys.stderr)
+    sys.exit(1)
+if args.done_at is not None and args.done_pattern is None:
+    print("ERROR: missing argument: if --done_at then need --done_pattern",
+          file=sys.stderr)
+    sys.exit(1)
+
+print(" ".join(sys.argv))
+tool = os.path.basename(sys.argv[0])
+
+# Attempt connection (once by default, or keep trying if waiting for done maker)
+last_wait_print = time.time()
+while True:
+    limit_lifetime(tool, args.owner_pid)
+    last_wait_print = print_wait(last_wait_print,
+        "%s: attempting to connect to Qemu via QMP (%s:%u)" % \
+        (tool, args.host, args.port))
+
+    try:
+        qmp = QMP(args.host, args.port, verbose=args.verbose)
+        break
+    except ConnectionRefusedError:
+        if not args.done_at:
+            raise
+        time.sleep(args.check_interval)
+
+# There can only be one QMP client (apparently?), so we have to issue continue
+if args.cont:
+    print("%s: sending continue command" % tool)
+    qmp.command("cont")
+
+# Wait for done marker to be written by the target
+while args.done_at:
+    #qmp.verbose = False
+    limit_lifetime(tool, args.owner_pid)
+
+    s = dump_str(args.cpu, args.done_at, len(args.done_pattern))
+    if s == args.done_pattern:
+        print("%s: done marker (%s) found at target address (0x%x)" % \
+              (tool, args.done_pattern, args.done_at))
+        qmp.verbose = args.verbose
+        break
+    else:
+        last_wait_print = print_wait(last_wait_print,
+            "%s: waiting for done marker (%s) at target address (0x%x): now '%s'" % \
+             (tool, args.done_pattern, args.done_at, s))
+        time.sleep(args.check_interval)
+
+if args.length is not None:
+    length = args.length
+elif args.length_at is not None:
+    length = dump_int(args.cpu, args.length_at)
+
+if args.output is not None:
+    out_fname = args.output
+    fout = open(out_fname, "wb")
+else:
+    tmpout = tempfile.NamedTemporaryFile(mode="rb")
+    out_fname = tmpout.name
+    fout = sys.stdout
+
+print("%s: dumping %u (0x%x) bytes via CPU %u at 0x%x to %s" % \
+      (sys.argv[0], length, length, args.cpu, args.address, out_fname))
+do_dump(args.cpu, args.address, length, out_fname)
+
+if args.quit:
+    qmp.command("quit")
+
+if args.output is None:
+    tmpout.flush()
+    while True:
+        d = tmpout.read(4096)
+        if len(d) == 0:
+            break
+        sys.stdout.write(d)
+    tmpout.close()
