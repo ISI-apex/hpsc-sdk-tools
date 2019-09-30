@@ -2,30 +2,34 @@
 
 import sys
 import argparse
-import json
-import pprint
+
+from qmp import QMP
 
 parser = argparse.ArgumentParser(
-    description="Extract paths from Qemu QMP response to query-chardev cmd")
-parser.add_argument('args', nargs="+",
+    description="Query Qemu for paths to PTY devices that are backends of serial devices")
+parser.add_argument('host',
+    help='Qemu QMP Telnet server hostname')
+parser.add_argument('port', type=int,
+    help='Qemu QMP Telnet server port')
+parser.add_argument('devs', nargs="+",
     help='Character devices for which to print paths')
-
 args = parser.parse_args()
 
-reply = sys.stdin.read()
-reply_json = json.loads(reply)
-#pprint.pprint(reply_json)
-cdevs = reply_json[u"return"]
+qmp = QMP(args.host, args.port)
+reply = qmp.command("query-chardev")
+cdevs = reply["return"]
 
 fnames = {}
 for cdev in cdevs:
-        fnames[cdev[u"label"]] = cdev[u"filename"]
-#pprint.pprint(fnames)
+    fnames[cdev[u"label"]] = cdev[u"filename"]
 
-for label in args.args:
-        fname = fnames[label]
-        if not fname.startswith("pty:"):
-            raise Exception("Chardev backend is not a PTY: %s" % fname)
-        fname = fname.replace(u"pty:", u"")
-        print(fname + ' ', end='')
-print()
+# Print out in bash assoc array syntax
+print("( ", end='')
+for label in args.devs:
+    fname = fnames[label]
+    if not fname.startswith("pty:"):
+        raise Exception("Chardev '%s' backend is not a PTY: %s" % \
+                        (label, fname))
+    fname = fname.replace(u"pty:", u"")
+    print("[%s]=%s" % (label, fname), end=' ')
+print(")")
