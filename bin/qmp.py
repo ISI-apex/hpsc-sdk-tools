@@ -1,59 +1,33 @@
-#!/usr/bin/env python3
-
 import sys
-import telnetlib as tn
+import telnetlib
 import json
 #import pprint
-import argparse
 
-parser = argparse.ArgumentParser(
-    description="Interact with Qemu via the QMP interface")
-parser.add_argument('host',
-    help='Qemu QMP Telnet server hostname')
-parser.add_argument('port', type=int,
-    help='Qemu QMP Telnet server port')
-parser.add_argument('cmd',
-    help='Command to execute')
-parser.add_argument('args', nargs="*",
-    help='Arguments to the command (name=value, where value is quoted for string type)')
-parser.add_argument('--quiet', '-q', action='store_true',
-    help='Do not print any diagnostic information, only the output')
-args = parser.parse_args()
+class QMP:
+    def __init__(self, host, port, verbose=False):
+        self.host = host
+        self.port = port
+        self.verbose = verbose
 
-cl = tn.Telnet(args.host, args.port)
+        self.cl = telnetlib.Telnet(self.host, self.port)
+        reply = self.cl.read_until(b"\r\n")
+        # required handshake
+        self.cl.write(b'{"execute": "qmp_capabilities"}')
+        reply = self.cl.read_until(b"\r\n")
 
-reply = cl.read_until(b"\r\n")
-
-cl.write(b'{"execute": "qmp_capabilities"}')
-reply = cl.read_until(b"\r\n")
-
-arg_str = ""
-for arg in args.args:
-    key, val = arg.split('=')
-
-    # JSON does not support hex, but let's support it here
-    if val.startswith("0x"):
-        val = str(int(val, 16))
-
-    if len(arg_str) > 0:
-        arg_str += ",\n"
-    arg_str += '        "%s": %s' % (key, val)
-
-req = """
-{
-    "execute": "%s",
-    "arguments": {
-%s
-    }
-}
-""" % (args.cmd, arg_str)
-
-if not args.quiet:
-    print(req)
-
-req = req.encode()
-
-cl.write(req)
-reply = cl.read_until(b"\r\n")
-
-print(reply.decode())
+    def command(self, cmd, **args):
+        req = json.dumps({"execute": cmd, "arguments": args})
+        if self.verbose:
+            print(req)
+        self.cl.write(req.encode())
+        reply = self.cl.read_until(b"\r\n")
+        # some commands print multiple newlines; we must eat them, otherwise
+        # the next request will read them and return immediately.
+        try:
+            self.cl.read_eager()
+        except BlockingIOError:
+            pass
+        reply = reply.decode()
+        if self.verbose:
+            print(reply)
+        return json.loads(reply)

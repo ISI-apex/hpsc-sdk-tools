@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+import re
+from collections import OrderedDict
+
+from qmp import QMP
+
+parser = argparse.ArgumentParser(
+    description="Interact with Qemu via the QMP interface")
+parser.add_argument('host',
+    help='Qemu QMP Telnet server hostname')
+parser.add_argument('port', type=int,
+    help='Qemu QMP Telnet server port')
+parser.add_argument('cmd',
+    help='Command to execute')
+parser.add_argument('args', nargs="*",
+    help='Arguments to the command (name=value, where value is quoted for string type)')
+parser.add_argument('--verbose', '-v', action='store_true',
+    help='Print requests and replies')
+args = parser.parse_args()
+
+cmd_args = OrderedDict()
+for arg in args.args:
+    key, val = arg.split('=')
+
+    # JSON does not support hex, but let's support it here
+    if val.startswith("0x"):
+        val = int(val, 16)
+    elif re.match(r'^0[0-9]+$', val):
+        val = int(val, 8)
+    elif re.match(r'^[1-9][0-9]*$', val):
+        val = int(val, 10)
+    else:
+        m = re.match(r'^"(.*)"$', val)
+        if m:
+            val = m.group(1)
+    cmd_args[key] = val
+
+qmp = QMP(args.host, args.port, verbose=args.verbose)
+reply = qmp.command(args.cmd, **cmd_args)
+
+if reply is not None:
+    print(reply)

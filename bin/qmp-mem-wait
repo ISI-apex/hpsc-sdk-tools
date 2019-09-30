@@ -55,7 +55,7 @@ do
         fi
     fi
 
-    qmp.py "$QMP_HOST" "$QMP_PORT" pmemsave "val=$DONE_ADDR" "size=${#DONE_PATTERN}" \
+    qmp-cmd "$QMP_HOST" "$QMP_PORT" pmemsave "val=$DONE_ADDR" "size=${#DONE_PATTERN}" \
         "filename=\"$DONE_FILE\"" "cpu-index=$DONE_CPU" 2>/dev/null 1>&2
 
     if grep -q "$DONE_PATTERN" "$DONE_FILE"

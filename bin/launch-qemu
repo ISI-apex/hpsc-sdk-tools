@@ -108,8 +108,7 @@ function setup_screen()
 
 function serial_ptys()
 {
-    qmp.py -q localhost "$QMP_PORT" query-chardev | \
-        qemu-chardev-ptys "${!SCREEN_SESSIONS[@]}"
+    qemu-chardev-ptys localhost "$QMP_PORT" "${!SCREEN_SESSIONS[@]}"
 }
 
 function attach_consoles()
@@ -159,7 +158,7 @@ function attach_consoles()
     if [ "$RESET" -eq 1 ]
     then
         echo "Sending 'continue' command to Qemu to reset the machine..."
-        qmp.py localhost "$QMP_PORT" cont
+        qmp-cmd localhost "$QMP_PORT" cont
     else
         echo "Waiting for 'continue' (aka. reset) command via GDB or QMP connection..."
     fi
