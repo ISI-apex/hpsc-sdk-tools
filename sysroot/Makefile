@@ -454,12 +454,13 @@ $(ART_git): | $(ART_curl)
 $(ART_git): CONFIG_FLAGS=--with-curl
 
 PY_PKGCFG_DEPS=ncurses libffi
+$(ART_python): CONFIG_FLAGS=--enable-loadable-sqlite-extensions
 $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(ART_libffi)
 	cd $(DIR) && $(SYSROOT_VARS) \
 		CFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATHS) $(PKGCONFIG) --cflags $(PY_PKGCFG_DEPS))" \
 		CPPFLAGS+="$$CFLAGS" \
 		LDFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATHS) $(PKGCONFIG) --libs $(PY_PKGCFG_DEPS))" \
-	./configure --prefix=$(HPREFIX) --enable-loadable-sqlite-extensions --enable-optimizations
+	./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS) --enable-optimizations
 	$(MAKE) -C $(DIR) install # don't call plain make, because it includes test (at least for py2)
 
 UBOOTTOOLS_VARS=HOST_EXTRACFLAGS="-I$(HPREFIX)/include"
