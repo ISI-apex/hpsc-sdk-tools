@@ -146,20 +146,21 @@ URL_libcap=http://ftp.debian.org/debian/pool/main/libc/libcap2
 TARBALL_libcap=libcap2_$(VER_libcap).orig.tar.xz
 ART_libcap=$(PC64)/libcap.pc
 
-VER_fakeroot=1.23
+VER_fakeroot=1.24
 URL_fakeroot=http://deb.debian.org/debian/pool/main/f/fakeroot
-TARBALL_fakeroot=fakeroot_$(VER_fakeroot).orig.tar.xz
+TARBALL_fakeroot=fakeroot_$(VER_fakeroot).orig.tar.gz
 ART_fakeroot=$(BIN)/fakeroot
 
-VER_MAJMIN_util_linux=2.33
-VER_PATCH_util_linux=1
-VER_util_linux=$(VER_MAJMIN_util_linux).$(VER_PATCH_util_linux)
+VER_MAJMIN_util_linux=2.34
+#VER_PATCH_util_linux=
+#VER_util_linux=$(VER_MAJMIN_util_linux).$(VER_PATCH_util_linux)
+VER_util_linux=$(VER_MAJMIN_util_linux)
 URL_util_linux=https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v$(VER_MAJMIN_util_linux)
 TARBALL_util_linux=util-linux-$(VER_util_linux).tar.xz
 DIR_util_linux=util-linux-$(VER_util_linux)
 ART_util_linux=$(PC)/mount.pc
 
-VER_pcre=8.42
+VER_pcre=8.43
 URL_pcre=https://ftp.pcre.org/pub/pcre
 TARBALL_pcre=pcre-$(VER_pcre).tar.bz2
 ART_pcre=$(PC)/libpcre.pc
@@ -175,7 +176,7 @@ TARBALL_glib=glib-$(VER_glib).tar.xz
 URL_glib=http://ftp.gnome.org/pub/gnome/sources/glib/$(VER_MAJMIN_glib)
 ART_glib=$(PC)/glib-2.0.pc
 
-VER_pixman=0.38.0
+VER_pixman=0.38.4
 URL_pixman=https://www.cairographics.org/releases
 ART_pixman=$(PC)/pixman-1.pc
 
@@ -185,14 +186,14 @@ TARBALL_libxfs=xfsprogs-$(VER_libxfs).tar.xz
 DIR_libxfs=xfsprogs-$(VER_libxfs)
 ART_libxfs=$(INC)/xfs/xfs.h
 
-VER_sqlite=3.28.0
+VER_sqlite=3.29.0
 URL_sqlite=https://www.sqlite.org/2019
-VER_sqlite_NUM=3280000
+VER_sqlite_NUM=3290000
 TARBALL_sqlite=sqlite-autoconf-$(VER_sqlite_NUM).tar.gz
 DIR_sqlite=sqlite-autoconf-$(VER_sqlite_NUM)
 ART_sqlite=$(PC)/sqlite3.pc
 
-VER_dtc=1.5.0
+VER_dtc=1.5.1
 URL_dtc=https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot
 ART_dtc=$(BIN)/dtc
 
@@ -200,11 +201,11 @@ VER_ncurses=6.1
 URL_ncurses=https://invisible-mirror.net/archives/ncurses
 ART_ncurses=$(PC)/ncurses.pc
 
-VER_openssl=1.1.1b
+VER_openssl=1.1.1d
 URL_openssl=https://www.openssl.org/source
 ART_openssl=$(PC)/openssl.pc
 
-VER_curl=7.64.1
+VER_curl=7.66.0
 URL_curl=https://curl.haxx.se/download
 ART_curl=$(PC)/libcurl.pc
 
@@ -212,13 +213,13 @@ VER_screen=4.6.2
 URL_screen=https://ftp.gnu.org/gnu/screen
 ART_screen=$(BIN)/screen
 
-VER_git=2.21.0
+VER_git=2.23.0
 URL_git=https://mirrors.edge.kernel.org/pub/software/scm/git
 TARBALL_git=git-$(VER_git).tar.xz
 ART_git=$(BIN)/git
 
 VER_MAJMIN_python=3.7
-VER_PATCH_python=3
+VER_PATCH_python=4
 VER_python=$(VER_MAJMIN_python).$(VER_PATCH_python)
 URL_python=https://www.python.org/ftp/python/$(VER_python)
 TARBALL_python=Python-$(VER_python).tar.xz
@@ -232,14 +233,14 @@ TARBALL_python2=Python-$(VER_python2).tar.xz
 DIR_python2=Python-$(VER_python2)
 ART_python2=$(BIN)/python2
 
-VER_texinfo=6.6
+VER_texinfo=6.7
 URL_texinfo=https://ftp.gnu.org/gnu/texinfo
 ART_texinfo=$(BIN)/makeinfo
 
-# u-boot >=2018.05 requires GCC >= 6 (but 2018.05 breaks, so we patch 2019.01)
-VER_uboottools=2019.01
+# u-boot >=2018.05 requires GCC >= 6 (but 2018.05 breaks, so we patch 2019.x)
+VER_uboottools=2019.07
 # Option A: Gitlab
-#VER_HASH_uboottools=d3689267f92c5956e09cc7d1baa4700141662bff
+#VER_HASH_uboottools=<insert commit hash of release here>
 #URL_uboottools=https://gitlab.denx.de/u-boot/u-boot/-/archive/v$(VER_uboottools)
 #DIR_uboottools=u-boot-v$(VER_uboottools)-$(VER_HASH_uboottools)
 # Option B: FTP server
@@ -250,7 +251,7 @@ TARBALL_uboottools=u-boot-$(VER_uboottools).tar.bz2
 ART_uboottools=$(BIN)/mkimage
 
 # SSW makefile requires make >= 3.81
-VER_make=4.2
+VER_make=4.2.1
 URL_make=https://ftp.gnu.org/gnu/make
 ART_make=$(BIN)/make
 
@@ -283,7 +284,7 @@ ART_ninja=$(BIN)/ninja
 # Python packages
 
 # pypi distributes setuptools only in .zip package, so use GitHub
-VER_setuptools=40.8.0
+VER_setuptools=41.2.0
 VER_POST_setuptools=post20191001
 URL_setuptools=https://github.com/pypa/setuptools/archive
 TARBALL_setuptools=v$(VER_setuptools).tar.gz
@@ -291,7 +292,7 @@ ART_VER_setuptools=$(VER_setuptools).$(VER_POST_setuptools)
 
 VER_argparse=1.4.0
 VER_pprint=0.1
-VER_configparser=3.7.4
+VER_configparser=4.0.2
 VER_meson=0.51.2
 
 # Defaults for url fname, tarballs and dirs, override the exceptions above
