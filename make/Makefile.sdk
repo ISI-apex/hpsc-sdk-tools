@@ -80,9 +80,9 @@ DEP_ENV_FILE:=dep-env.sh
 # We can't make this choice for the user -- that is, env artifact has to be
 # makeable only by a phony target. Also, help if deps/* wasn't run.
 deps $(BLD)/$(DEP_ENV_FILE):
-	@echo "ERROR: must build dependency target first:"
-	@echo "  supported options (pick one): deps/sysroot deps/centos7 deps/arch"
-	@echo "  to reset and choose again: deps/clean"
+	@echo "ERROR: must build dependency target first:" && \
+	echo "  supported options (pick one): deps/sysroot deps/centos7 deps/arch" && \
+	echo "  to reset and choose again: deps/clean"
 	exit 1
 deps/clean:
 	rm -f $(BLD)/$(DEP_ENV_FILE)
