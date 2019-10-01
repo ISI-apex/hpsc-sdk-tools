@@ -113,9 +113,6 @@ deps/arch: | $(BLD)/.
 .PHONY: deps/arch
 
 # Option: dependencies built from source
-deps/sysroot: $(S_dep-sysroot) | $(BLD)/.
-	echo 'source $(abspath $(S_dep-sysroot)/bld/env.sh)' > $(BLD)/$(DEP_ENV_FILE)
-.PHONY: deps/sysroot deps/sysroot/clean
 
 # The depend sysroot builder just happens to be version controlled int he
 # sdk-tools repository), but it's standalone.
@@ -127,6 +124,10 @@ $(S_dep-sysroot)/%: PHONY
 $(S_dep-sysroot)/clean:
 	$(MAKE) -C $(S_dep-sysroot) clean
 .PHONY: $(S_dep-sysroot) $(S_dep-sysroot)/clean
+
+deps/sysroot: $(S_dep-sysroot) | $(BLD)/.
+	echo 'source $(abspath $(S_dep-sysroot)/bld/env.sh)' > $(BLD)/$(DEP_ENV_FILE)
+.PHONY: deps/sysroot deps/sysroot/clean
 
 ## Components of the SDK that are shipped in the SDK and built from source
 # S_* are paths to source trees, B_* are build directories
