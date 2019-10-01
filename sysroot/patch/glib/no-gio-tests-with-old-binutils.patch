@@ -1,0 +1,26 @@
+--- a/gio/tests/meson.build	2019-09-05 09:56:48.000000000 -0700
++++ b/gio/tests/meson.build	2019-10-01 10:44:23.660763000 -0700
+@@ -574,10 +574,22 @@
+ 
+   # Create object file containing resource data for testing the --external-data
+   # option. Currently only GNU ld and GNU objcopy support the right options.
++  # Since binutils 2.26.
+   # Support for --add-symbol was added to LLVM objcopy in 2019
+   # (https://reviews.llvm.org/D58234). FIXME: This test could be enabled for
+   # LLVM once that support is in a stable release.
+-  if build_machine.system() == 'linux' and cc.get_id() == 'gcc'
++  # FIXME: when meson >=0.52.0
++  # objcopy = find_program('objcopy', version : '>=2.26')
++  # objcopy_has_addsym = objcopy.found()
++  # ... while meson <0.52.0):
++  objcopy = find_program('objcopy')
++  objcopy_ver_res = run_command(objcopy, '--version')
++  if objcopy_ver_res.returncode() != 0
++    error('failed to get version of objcopy')
++  endif
++  objcopy_ver = objcopy_ver_res.stdout().split('\n')[0].split(' ')[-1].strip()
++  objcopy_has_addsym = objcopy_ver.version_compare('>=2.26')
++  if build_machine.system() == 'linux' and cc.get_id() == 'gcc' and objcopy_has_addsym
+     test_gresource_binary = custom_target('test5.gresource',
+       input : 'test5.gresource.xml',
+       output : 'test5.gresource',

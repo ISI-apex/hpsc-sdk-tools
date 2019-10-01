@@ -443,6 +443,7 @@ $(ART_re2c) \
 
 $(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_meson) $(ART_libffi) \
 	       $(ART_pcre) $(ART_util_linux)
+	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/glib/*.patch)
 	cd $(DIR) && $(SYSROOT_VARS) && \
 		meson --prefix=$(HPREFIX) --pkg-config-path $(PKGCFG_PATHS) _build && \
 		ninja -C _build && \
