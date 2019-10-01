@@ -130,13 +130,11 @@ DEPS=$(DEPS_NATIVE) $(DEPS_PY)
 
 # Components: note that there are default values, see end of this list
 
-# Constraints on versions: support GCC >= 4.4
+# Constraints on versions: support GCC >= 4.8
 
-# attr 2.4.48 requires GCC >= 4.5
-VER_attr=2.4.47
+VER_attr=2.4.48
 URL_attr=http://download.savannah.nongnu.org/releases/attr
-TARBALL_attr=attr-$(VER_attr).src.tar.gz
-ART_attr=$(BIN)/attr # for >=2.4.48 use $(PC)/libattr.pc
+ART_attr=$(PC)/libattr.pc
 
 VER_libcap=2.25
 URL_libcap=http://ftp.debian.org/debian/pool/main/libc/libcap2
@@ -257,8 +255,7 @@ TARBALL_pkgconfig=pkg-config-$(VER_pkgconfig).tar.gz
 DIR_pkgconfig=pkg-config-$(VER_pkgconfig)
 ART_pkgconfig=$(BIN)/pkg-config
 
-# patchelf >= 0.10 requires c++11 which is not supported by GCC <=4.4)
-VER_patchelf=0.9
+VER_patchelf=0.10
 URL_patchelf=https://nixos.org/releases/patchelf/patchelf-$(VER_patchelf)
 ART_patchelf=$(BIN)/patchelf
 
