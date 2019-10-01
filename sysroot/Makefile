@@ -57,13 +57,12 @@ PKGCFG_PATH=$(HPREFIX)/$(LIBDIR)/pkgconfig
 PYTHON_SITE_REL=$(PREFIX)/$(LIBDIR)/python$(VER_MAJMIN_python)/site-packages
 PYTHON_SITE=$(abspath $(PYTHON_SITE_REL))
 
-# We add lib64/ just in case, we didn't override libdir for some components
 define ENV
 # Auto-generated SDK environment file
 HPREFIX=$(abspath $(SYSROOT))/usr
 export PATH=$$HPREFIX/sbin:$$HPREFIX/bin:$$PATH
 export PYTHONPATH=$(PYTHON_SITE):$$PYTHONPATH
-export LD_LIBRARY_PATH=$$HPREFIX/lib64:$$HPREFIX/$(LIBDIR)
+export LD_LIBRARY_PATH=$$HPREFIX/$(LIBDIR)
 export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 endef
 
@@ -412,17 +411,19 @@ $(foreach d,$(DEPS),$(eval $(d): $(ART_$(d))))
 $(foreach d,$(DEPS),$(eval $(ART_$(d)): DIR=$(WORK)/$(DIR_$(d))))
 
 # Env vars usually respected by autoconf configure script
-# We add lib64/ just in case, we didn't override libdir for some components
 SYSROOT_VARS=\
 	PKG_CONFIG_PATH=$(PKGCFG_PATH) \
-	LD_LIBRARY_PATH=$(HPREFIX)/lib64:$(HPREFIX)/$(LIBDIR) \
+	LD_LIBRARY_PATH=$(HPREFIX)/$(LIBDIR) \
 	CFLAGS+=-I$(HPREFIX)/include \
 	LDFLAGS+="-L$(HPREFIX)/$(LIBDIR) -Wl,-rpath=$(HPREFIX)/$(LIBDIR)" \
-	LDFLAGS+="-L$(HPREFIX)/lib64 -Wl,-rpath=$(HPREFIX)/lib64" \
 	PATH="$(HPREFIX)/bin:$$PATH" \
 
+CONFIG_FLAGS=\
+	--prefix=$(HPREFIX) \
+	--libdir=$(HPREFIX)/$(LIBDIR)
+
 $(ART_pkgconfig):
-	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX)
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR) install
 
 # Most targets can reuse this standard autotools recipe
@@ -441,7 +442,7 @@ $(ART_patchelf) \
 $(ART_rsync) \
 $(ART_re2c) \
 : | $(ART_pkgconfig)
-	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS)
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
@@ -462,21 +463,21 @@ $(ART_libcap): | $(ART_pkgconfig) $(ART_attr)
 $(ART_fakeroot): | $(ART_libcap)
 
 $(ART_util_linux): | $(ART_pkgconfig) $(ART_fakeroot)
-	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) \
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS) \
 			--with-bashcompletiondir=$(HPREFIX)/share/bash-completions \
 			--without-python
 	$(MAKE) -C $(DIR)
 	$(FAKEROOT) $(MAKE) -C $(DIR) install
 
 $(ART_pcre): | $(ART_pkgconfig)
-$(ART_pcre): CONFIG_FLAGS=--enable-utf --enable-unicode-properties
+$(ART_pcre): CONFIG_FLAGS+=--enable-utf --enable-unicode-properties
 
 $(ART_libxfs): | $(ART_util_linux)
-	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX)
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install-dev
 
-$(ART_ncurses): CONFIG_FLAGS=--with-pkg-config-libdir=$(PKGCFG_PATH) \
+$(ART_ncurses): CONFIG_FLAGS+=--with-pkg-config-libdir=$(PKGCFG_PATH) \
 			     --enable-pc-files --with-shared --without-ada
 
 $(ART_openssl): | $(ART_ncurses)
@@ -492,15 +493,15 @@ $(ART_curl): | $(ART_openssl)
 
 $(ART_make):
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/make/*.patch)
-	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS)
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
 $(ART_git): | $(ART_curl)
-$(ART_git): CONFIG_FLAGS=--with-curl
+$(ART_git): CONFIG_FLAGS+=--with-curl
 
 PY_PKGCFG_DEPS=ncurses libffi
-$(ART_python): CONFIG_FLAGS=--enable-loadable-sqlite-extensions
+$(ART_python): CONFIG_FLAGS_PY+=--enable-loadable-sqlite-extensions
 $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(ART_libffi)
 	cd $(DIR) && $(SYSROOT_VARS) && \
 		CFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
@@ -508,7 +509,7 @@ $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(AR
 		CPPFLAGS+="$$CFLAGS" \
 		LDFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
 						$(PKGCONFIG) --libs $(PY_PKGCFG_DEPS))" \
-		./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS) --enable-optimizations
+		./configure $(CONFIG_FLAGS) $(CONFIG_FLAGS_PY) --enable-optimizations
 	$(MAKE) -C $(DIR) build_all
 	$(MAKE) -C $(DIR) install
 
