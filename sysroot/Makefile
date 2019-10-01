@@ -199,7 +199,7 @@ ART_ncurses=$(PC)/ncurses.pc
 
 VER_openssl=1.1.1b
 URL_openssl=https://www.openssl.org/source
-ART_openssl=$(PC64)/openssl.pc
+ART_openssl=$(PC)/openssl.pc
 
 VER_curl=7.64.1
 URL_curl=https://curl.haxx.se/download
