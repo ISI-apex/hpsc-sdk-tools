@@ -37,7 +37,6 @@ HPREFIX=$(abspath $(PREFIX))
 BIN=$(PREFIX)/bin
 INC=$(PREFIX)/include
 PC=$(PREFIX)/lib/pkgconfig
-PC64=$(PREFIX)/lib64/pkgconfig
 
 # Tools required for building the SDK:
 # ... provided by the system
@@ -51,16 +50,21 @@ FAKEROOT=$(HPREFIX)/bin/fakeroot
 PYTHON=$(HPREFIX)/bin/python3
 PKGCONFIG=$(HPREFIX)/bin/pkg-config
 
-PYTHON_SITE_REL=$(PREFIX)/lib/python$(VER_MAJMIN_python)/site-packages
+LIBDIR:=lib
+
+PKGCFG_PATH=$(HPREFIX)/$(LIBDIR)/pkgconfig
+
+PYTHON_SITE_REL=$(PREFIX)/$(LIBDIR)/python$(VER_MAJMIN_python)/site-packages
 PYTHON_SITE=$(abspath $(PYTHON_SITE_REL))
 
+# We add lib64/ just in case, we didn't override libdir for some components
 define ENV
 # Auto-generated SDK environment file
 HPREFIX=$(abspath $(SYSROOT))/usr
 export PATH=$$HPREFIX/sbin:$$HPREFIX/bin:$$PATH
 export PYTHONPATH=$(PYTHON_SITE):$$PYTHONPATH
-export LD_LIBRARY_PATH=$$HPREFIX/lib64:$$HPREFIX/lib
-export PKG_CONFIG_PATH=$$HPREFIX/lib64/pkgconfig:$$HPREFIX/lib/pkgconfig
+export LD_LIBRARY_PATH=$$HPREFIX/lib64:$$HPREFIX/$(LIBDIR)
+export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 endef
 
 ENV_FILE=$(BLD)/env.sh
@@ -150,7 +154,7 @@ ART_attr=$(PC)/libattr.pc
 VER_libcap=2.25
 URL_libcap=http://ftp.debian.org/debian/pool/main/libc/libcap2
 TARBALL_libcap=libcap2_$(VER_libcap).orig.tar.xz
-ART_libcap=$(PC64)/libcap.pc
+ART_libcap=$(PC)/libcap.pc
 
 VER_fakeroot=1.24
 URL_fakeroot=http://deb.debian.org/debian/pool/main/f/fakeroot
@@ -180,7 +184,7 @@ VER_PATCH_glib=0
 VER_glib=$(VER_MAJMIN_glib).$(VER_PATCH_glib)
 TARBALL_glib=glib-$(VER_glib).tar.xz
 URL_glib=http://ftp.gnome.org/pub/gnome/sources/glib/$(VER_MAJMIN_glib)
-ART_glib=$(PC64)/glib-2.0.pc
+ART_glib=$(PC)/glib-2.0.pc
 
 VER_pixman=0.38.4
 URL_pixman=https://www.cairographics.org/releases
@@ -209,7 +213,7 @@ ART_ncurses=$(PC)/ncurses.pc
 
 VER_openssl=1.1.1d
 URL_openssl=https://www.openssl.org/source
-ART_openssl=$(PC64)/openssl.pc
+ART_openssl=$(PC)/openssl.pc
 
 VER_curl=7.66.0
 URL_curl=https://curl.haxx.se/download
@@ -407,14 +411,14 @@ $(foreach d,$(DEPS),$(eval $(d): $(ART_$(d))))
 # Define per-target DIR to allow recipies to be more concise
 $(foreach d,$(DEPS),$(eval $(ART_$(d)): DIR=$(WORK)/$(DIR_$(d))))
 
-PKGCFG_PATHS=$(HPREFIX)/lib64/pkgconfig:$(HPREFIX)/lib/pkgconfig
-
 # Env vars usually respected by autoconf configure script
+# We add lib64/ just in case, we didn't override libdir for some components
 SYSROOT_VARS=\
-	PKG_CONFIG_PATH=$(PKGCFG_PATHS) \
-	LD_LIBRARY_PATH=$(HPREFIX)/lib64:$(HPREFIX)/lib \
+	PKG_CONFIG_PATH=$(PKGCFG_PATH) \
+	LD_LIBRARY_PATH=$(HPREFIX)/lib64:$(HPREFIX)/$(LIBDIR) \
 	CFLAGS+=-I$(HPREFIX)/include \
-	LDFLAGS+="-L$(HPREFIX)/lib64 -L$(HPREFIX)/lib -Wl,-rpath=$(HPREFIX)/lib64 -Wl,-rpath=$(HPREFIX)/lib" \
+	LDFLAGS+="-L$(HPREFIX)/$(LIBDIR) -Wl,-rpath=$(HPREFIX)/$(LIBDIR)" \
+	LDFLAGS+="-L$(HPREFIX)/lib64 -Wl,-rpath=$(HPREFIX)/lib64" \
 	PATH="$(HPREFIX)/bin:$$PATH" \
 
 $(ART_pkgconfig):
@@ -445,14 +449,15 @@ $(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_meson) $(ART_libffi) \
 	       $(ART_pcre) $(ART_util_linux)
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/glib/*.patch)
 	cd $(DIR) && $(SYSROOT_VARS) && \
-		meson --prefix=$(HPREFIX) --pkg-config-path $(PKGCFG_PATHS) _build && \
+		meson --prefix=$(HPREFIX) --libdir=$(LIB) \
+			--pkg-config-path=$(PKGCFG_PATH) _build && \
 		ninja -C _build && \
 		ninja -C _build install
 
 $(ART_libcap): | $(ART_pkgconfig) $(ART_attr)
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/libcap/*.patch)
-	$(MAKE) -C $(DIR) DESTDIR=$(abspath $(SYSROOT)) LDFLAGS+=-L$(HPREFIX)/lib \
-		RAISE_SETFCAP=no install \
+	$(MAKE) -C $(DIR) DESTDIR=$(abspath $(SYSROOT)) lib=$(LIBDIR) \
+		LDFLAGS+=-L$(HPREFIX)/$(LIBDIR) RAISE_SETFCAP=no install \
 
 $(ART_fakeroot): | $(ART_libcap)
 
@@ -471,11 +476,11 @@ $(ART_libxfs): | $(ART_util_linux)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install-dev
 
-$(ART_ncurses): CONFIG_FLAGS=--with-pkg-config-libdir=$(HPREFIX)/lib/pkgconfig \
+$(ART_ncurses): CONFIG_FLAGS=--with-pkg-config-libdir=$(PKGCFG_PATH) \
 			     --enable-pc-files --with-shared --without-ada
 
 $(ART_openssl): | $(ART_ncurses)
-	cd $(DIR) && $(SYSROOT_VARS) ./config --prefix=$(HPREFIX)
+	cd $(DIR) && $(SYSROOT_VARS) ./config --prefix=$(HPREFIX) --libdir=$(LIBDIR)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
@@ -498,10 +503,10 @@ PY_PKGCFG_DEPS=ncurses libffi
 $(ART_python): CONFIG_FLAGS=--enable-loadable-sqlite-extensions
 $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(ART_libffi)
 	cd $(DIR) && $(SYSROOT_VARS) && \
-		CFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATHS) \
+		CFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
 						$(PKGCONFIG) --cflags $(PY_PKGCFG_DEPS))" \
 		CPPFLAGS+="$$CFLAGS" \
-		LDFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATHS) \
+		LDFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
 						$(PKGCONFIG) --libs $(PY_PKGCFG_DEPS))" \
 		./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS) --enable-optimizations
 	$(MAKE) -C $(DIR) build_all
