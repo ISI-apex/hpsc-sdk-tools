@@ -335,6 +335,7 @@ endif
 define extract-rule-tar
 $(3)/$(DIR_$(1)): $(2)/$(TARBALL_$(1)) | $(3)/.
 	$(TAR) -C $(3) -x -f $$<
+	@[ -d "$$@" ] || (echo "ERROR: $$@ not a dir: wrong DIR_$(1)?" 2>&1 && exit 1)
 	touch $$@
 endef
 
