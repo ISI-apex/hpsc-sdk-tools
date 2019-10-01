@@ -470,14 +470,14 @@ $(ART_util_linux): | $(ART_pkgconfig) $(ART_fakeroot)
 	$(FAKEROOT) $(MAKE) -C $(DIR) install
 
 $(ART_pcre): | $(ART_pkgconfig)
-$(ART_pcre): CONFIG_FLAGS+=--enable-utf --enable-unicode-properties
+$(ART_pcre): private CONFIG_FLAGS+=--enable-utf --enable-unicode-properties
 
 $(ART_libxfs): | $(ART_util_linux)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install-dev
 
-$(ART_ncurses): CONFIG_FLAGS+=--with-pkg-config-libdir=$(PKGCFG_PATH) \
+$(ART_ncurses): private CONFIG_FLAGS+=--with-pkg-config-libdir=$(PKGCFG_PATH) \
 			     --enable-pc-files --with-shared --without-ada
 
 $(ART_openssl): | $(ART_ncurses)
@@ -498,10 +498,10 @@ $(ART_make):
 	$(MAKE) -C $(DIR) install
 
 $(ART_git): | $(ART_curl)
-$(ART_git): CONFIG_FLAGS+=--with-curl
+$(ART_git): private CONFIG_FLAGS+=--with-curl
 
 PY_PKGCFG_DEPS=ncurses libffi
-$(ART_python): CONFIG_FLAGS_PY+=--enable-loadable-sqlite-extensions
+$(ART_python): private CONFIG_FLAGS+=--enable-loadable-sqlite-extensions
 $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(ART_libffi)
 	cd $(DIR) && $(SYSROOT_VARS) && \
 		CFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
@@ -509,7 +509,7 @@ $(ART_python) $(ART_python2): | $(ART_sqlite) $(ART_openssl) $(ART_ncurses) $(AR
 		CPPFLAGS+="$$CFLAGS" \
 		LDFLAGS+="$$(PKG_CONFIG_PATH=$(PKGCFG_PATH) \
 						$(PKGCONFIG) --libs $(PY_PKGCFG_DEPS))" \
-		./configure $(CONFIG_FLAGS) $(CONFIG_FLAGS_PY) --enable-optimizations
+		./configure $(CONFIG_FLAGS) --enable-optimizations
 	$(MAKE) -C $(DIR) build_all
 	$(MAKE) -C $(DIR) install
 
