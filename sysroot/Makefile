@@ -97,6 +97,7 @@ DEPS_LIB=\
 # dtc: for non-nested device tree builds (nested repos usually provide dtc)
 # screen: for connecting to serial ports
 # git: for work with repos (optional)
+# ninja: needed by meson, which is needed to build glib
 #
 DEPS_TOOL=\
 	fakeroot \
@@ -108,9 +109,11 @@ DEPS_TOOL=\
 	texinfo \
 	uboottools \
 	make \
+	ninja \
 	pkgconfig \
 	patchelf \
 	rsync \
+	re2c \
 
 # Python packages
 #
@@ -118,12 +121,14 @@ DEPS_TOOL=\
 # configparser: for manipulating INI config files
 # argparse: CLI in various tools
 # pprint: JSON formatting used in some tools
+# meson: needed to build glib
 #
 DEPS_PY=\
 	setuptools \
 	argparse \
 	configparser \
 	pprint \
+	meson \
 
 DEPS_NATIVE=$(DEPS_LIB) $(DEPS_TOOL)
 DEPS=$(DEPS_NATIVE) $(DEPS_PY)
@@ -163,8 +168,8 @@ VER_libffi=3.2.1
 URL_libffi=ftp://sourceware.org/pub/libffi
 ART_libffi=$(PC)/libffi.pc
 
-VER_MAJMIN_glib=2.54
-VER_PATCH_glib=3
+VER_MAJMIN_glib=2.62
+VER_PATCH_glib=0
 VER_glib=$(VER_MAJMIN_glib).$(VER_PATCH_glib)
 TARBALL_glib=glib-$(VER_glib).tar.xz
 URL_glib=http://ftp.gnome.org/pub/gnome/sources/glib/$(VER_MAJMIN_glib)
@@ -263,6 +268,18 @@ VER_rsync=3.1.3
 URL_rsync=https://download.samba.org/pub/rsync
 ART_rsync=$(BIN)/rsync
 
+# required by ninja
+VER_re2c=1.2.1
+URL_re2c=https://github.com/skvadrik/re2c/releases/download/1.2.1
+TARBALL_re2c=re2c-$(VER_re2c).tar.xz
+ART_re2c=$(BIN)/re2c
+
+# required by meson, which is required by glib
+VER_ninja=1.9.0
+URL_ninja=https://github.com/ninja-build/ninja/archive
+TARBALL_ninja=v$(VER_ninja).tar.gz
+ART_ninja=$(BIN)/ninja
+
 # Python packages
 
 # pypi distributes setuptools only in .zip package, so use GitHub
@@ -275,6 +292,7 @@ ART_VER_setuptools=$(VER_setuptools).$(VER_POST_setuptools)
 VER_argparse=1.4.0
 VER_pprint=0.1
 VER_configparser=3.7.4
+VER_meson=0.51.2
 
 # Defaults for url fname, tarballs and dirs, override the exceptions above
 $(foreach d,$(DEPS),$(eval TARBALL_$(d)?=$(d)-$(VER_$(d)).tar.gz))
@@ -400,7 +418,6 @@ $(ART_attr) \
 $(ART_fakeroot) \
 $(ART_libffi) \
 $(ART_pcre) \
-$(ART_glib) \
 $(ART_pixman) \
 $(ART_sqlite) \
 $(ART_ncurses) \
@@ -410,10 +427,17 @@ $(ART_texinfo) \
 $(ART_git) \
 $(ART_patchelf) \
 $(ART_rsync) \
+$(ART_re2c) \
 : | $(ART_pkgconfig)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
+
+$(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_libffi) $(ART_pcre) $(ART_util_linux)
+	cd $(DIR) && $(SYSROOT_VARS) meson --prefix=$(HPREFIX) \
+		--pkg-config-path $(PKGCFG_PATHS) _build
+	cd $(DIR) && ninja -C _build
+	cd $(DIR) && ninja -C _build install
 
 $(ART_libcap): | $(ART_pkgconfig) $(ART_attr)
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/libcap/*.patch)
@@ -431,8 +455,6 @@ $(ART_util_linux): | $(ART_pkgconfig) $(ART_fakeroot)
 
 $(ART_pcre): | $(ART_pkgconfig)
 $(ART_pcre): CONFIG_FLAGS=--enable-utf --enable-unicode-properties
-
-$(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_libffi) $(ART_pcre) $(ART_util_linux)
 
 $(ART_libxfs): | $(ART_util_linux)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX)
@@ -483,6 +505,13 @@ $(ART_uboottools): | $(ART_pkgconfig)
 	cd $(DIR) && install -m 755 -t "$(HPREFIX)/bin" \
 		tools/{mk{,env}image,env/fw_printenv,img2srec,dumpimage,netconsole,jtagconsole,ncb}
 	cd $(DIR) && ln -sf fw_printenv $(HPREFIX)/bin/fw_setenv
+
+$(ART_ninja): $(ART_re2c) $(ART_python)
+	cd $(DIR) && $(SYSROOT_VARS) PYTHONPATH=$(PYTHON_SITE):$(PYTHONPATH) \
+		$(PYTHON) configure.py --bootstrap
+	install -m755 -D $(DIR)/ninja	"$(HPREFIX)/bin/ninja"
+
+$(ART_meson): $(ART_ninja)
 
 DEPS_PY_PKGS=$(filter-out setuptools,$(DEPS_PY))
 PY_ARTS=$(foreach d,$(DEPS_PY),$(ART_$(d)))
