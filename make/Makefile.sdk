@@ -93,6 +93,7 @@ DEPS=$(DEPS_BIN) $(DEPS_TC)
 # * gcc-arm-none-eabi older than v7 2018-q2-update breaks build of R52 bare metal
 
 VER_arm_gnu_rm=7-2018-q2-update
+# Page: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads
 URL_arm_gnu_rm=https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2018q2
 TARBALL_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)-linux.tar.bz2
 DIR_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)
