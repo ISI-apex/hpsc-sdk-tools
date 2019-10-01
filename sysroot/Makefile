@@ -133,6 +133,11 @@ DEPS_PY=\
 DEPS_NATIVE=$(DEPS_LIB) $(DEPS_TOOL)
 DEPS=$(DEPS_NATIVE) $(DEPS_PY)
 
+# Extract first character from string (identifier), for Python URLs
+LETTERS=a b c d e f g h i j k l m n o p q r s t u v w x y z \
+        A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+firstletter=$(strip $(foreach let,$(LETTERS),$(if $(filter $(let)%,$(1)),$(let))))
+
 # Components: note that there are default values, see end of this list
 
 # Constraints on versions: support GCC >= 4.8
@@ -303,7 +308,7 @@ $(foreach d,$(DEPS),$(eval DIR_$(d)?=$(d)-$(VER_$(d))))
 # Default URL for python packages for downloading from PyPI, but should there
 # be any exceptions, simply define their respective URL vars below.
 $(foreach p,$(DEPS_PY),\
-	$(eval URL_$(p)?=https://pypi.io/packages/source/$(shell echo $(p) | head -c 1)/$(p)))
+	$(eval URL_$(p)?=https://pypi.io/packages/source/$(call firstletter,$(p))/$(p)))
 
 # Default for artifacts for python packages artifacts, override the exceptions above
 $(foreach p,$(DEPS_PY),\
