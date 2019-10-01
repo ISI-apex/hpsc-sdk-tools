@@ -125,6 +125,7 @@ DEPS_TOOL=\
 #
 DEPS_PY=\
 	setuptools \
+	setuptools_scm \
 	argparse \
 	configparser \
 	pprint \
@@ -295,6 +296,7 @@ URL_setuptools=https://github.com/pypa/setuptools/archive
 TARBALL_setuptools=v$(VER_setuptools).tar.gz
 ART_VER_setuptools=$(VER_setuptools).$(VER_POST_setuptools)
 
+VER_setuptools_scm=3.3.3
 VER_argparse=1.4.0
 VER_pprint=0.1
 VER_configparser=4.0.2
@@ -518,6 +520,7 @@ $(ART_ninja): $(ART_re2c) $(ART_python)
 	install -m755 -D $(DIR)/ninja	"$(HPREFIX)/bin/ninja"
 
 $(ART_meson): $(ART_ninja)
+$(ART_configparser): $(ART_setuptools_scm)
 
 DEPS_PY_PKGS=$(filter-out setuptools,$(DEPS_PY))
 PY_ARTS=$(foreach d,$(DEPS_PY),$(ART_$(d)))
