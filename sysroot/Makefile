@@ -68,9 +68,9 @@ env: $(ENV_FILE)
 $(ENV_FILE): export ENV_SH=$(ENV)
 $(ENV_FILE):
 	echo "$$ENV_SH" > $@
-env-clean:
+env/clean:
 	rm -f $(ENV_FILE)
-.PHONY: env env-clean
+.PHONY: env env/clean
 
 # Note: the identifiers need to be unique across this whole file, including
 # across separate categories, but the tarballs and build directories may have
@@ -291,7 +291,7 @@ $(foreach p,$(DEPS_PY),\
 libs: $(DEPS_LIB)
 tools: $(DEPS_TOOL)
 py: $(DEPS_PY)
-py-clean: $(foreach d,$(DEPS_PY),$(d)-clean)
+py/clean: $(foreach d,$(DEPS_PY),$(d)/clean)
 
 fetch: $(foreach d,$(DEPS),$(FETCH)/$(TARBALL_$(d)))
 
@@ -300,22 +300,22 @@ fetch: $(foreach d,$(DEPS),$(FETCH)/$(TARBALL_$(d)))
 	mkdir -p $@
 
 # don't clean fetched tarballs unless explicitly requested
-clean: sysroot-clean env-clean bld-clean
+clean: sysroot/clean env/clean bld/clean
 .PHONY: clean
 
-sysroot-clean:
+sysroot/clean:
 	rm -rf $(SYSROOT)/
-.PHONY: sysroot-clean
+.PHONY: sysroot/clean
 
-bld-clean:
+bld/clean:
 	rm -rf $(WORK)/
-bld-%-clean:
+bld/%/clean:
 	rm -f $(WORK)/$(DIR_$*)
-fetch-clean:
+fetch/clean:
 	rm -rf $(FETCH)/
-fetch-%-clean:
+fetch/%/clean:
 	rm -f $(FETCH)/$(TARBALL_$*)
-.PHONY: bld-clean bld-%-clean fetch-clean fetch-%-clean
+.PHONY: bld/clean bld/%/clean fetch/clean fetch/%/clean
 
 define fetch-rule
 fetch: $(FETCH)/$(TARBALL_$(1))
@@ -351,7 +351,7 @@ $(3)/$(DIR_$(1)): $(2)/$(TARBALL_$(1)) | $(3)/.
 endef
 
 define clean-rule
-$(1)-clean:
+$(1)/clean:
 	rm -rf $(WORK)/$(DIR_$(1)) $(ART_$(1))
 endef
 
