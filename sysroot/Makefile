@@ -416,7 +416,8 @@ $(ART_fakeroot): | $(ART_libcap)
 
 $(ART_util_linux): | $(ART_pkgconfig) $(ART_fakeroot)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) \
-			--with-bashcompletiondir=$(HPREFIX)/share/bash-completions
+			--with-bashcompletiondir=$(HPREFIX)/share/bash-completions \
+			--without-python
 	$(MAKE) -C $(DIR)
 	$(FAKEROOT) $(MAKE) -C $(DIR) install
 
