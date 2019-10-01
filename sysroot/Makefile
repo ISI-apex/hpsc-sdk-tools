@@ -398,7 +398,6 @@ $(ART_ncurses) \
 $(ART_screen) \
 $(ART_curl) \
 $(ART_texinfo) \
-$(ART_make) \
 $(ART_git) \
 $(ART_patchelf) \
 $(ART_rsync) \
@@ -444,6 +443,12 @@ $(ART_dtc): | $(ART_pkgconfig)
 
 $(ART_screen): | $(ART_ncurses)
 $(ART_curl): | $(ART_openssl)
+
+$(ART_make):
+	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/make/*.patch)
+	cd $(DIR) && $(SYSROOT_VARS) ./configure --prefix=$(HPREFIX) $(CONFIG_FLAGS)
+	$(MAKE) -C $(DIR)
+	$(MAKE) -C $(DIR) install
 
 $(ART_git): | $(ART_curl)
 $(ART_git): CONFIG_FLAGS=--with-curl
