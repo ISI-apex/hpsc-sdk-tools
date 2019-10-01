@@ -43,8 +43,9 @@ PC64=$(PREFIX)/lib64/pkgconfig
 # ... provided by the system
 WGET=wget
 TAR=tar
-UNZIP=unzip
 PATCH=patch
+# ... optional (not currently used by anything)
+UNZIP=unzip
 # ... built while building the SDK (must be absolute paths, not via $(BIN))
 FAKEROOT=$(HPREFIX)/bin/fakeroot
 PYTHON=$(HPREFIX)/bin/python3
@@ -221,7 +222,7 @@ TARBALL_python=Python-$(VER_python).tar.xz
 DIR_python=Python-$(VER_python)
 ART_python=$(BIN)/python3
 
-# Python2 is needed by Yocto build, not used anywhere else (see HOSTTOOLS)
+# Python2 is needed by Yocto build (see HOSTTOOLS) and Qemu build
 VER_python2=2.7.16
 URL_python2=https://www.python.org/ftp/python/$(VER_python2)
 TARBALL_python2=Python-$(VER_python2).tar.xz
@@ -261,8 +262,12 @@ ART_rsync=$(BIN)/rsync
 
 # Python packages
 
+# pypi distributes setuptools only in .zip package, so use GitHub
 VER_setuptools=40.8.0
-TARBALL_setuptools=setuptools-$(VER_setuptools).zip
+VER_POST_setuptools=post20191001
+URL_setuptools=https://github.com/pypa/setuptools/archive
+TARBALL_setuptools=v$(VER_setuptools).tar.gz
+ART_VER_setuptools=$(VER_setuptools).$(VER_POST_setuptools)
 
 VER_argparse=1.4.0
 VER_pprint=0.1
@@ -280,7 +285,8 @@ $(foreach p,$(DEPS_PY),\
 
 # Default for artifacts for python packages artifacts, override the exceptions above
 $(foreach p,$(DEPS_PY),\
-	$(eval ART_$(p)?=$(PYTHON_SITE_REL)/$(p)-$(VER_$(p))-py$(VER_MAJMIN_python).egg))
+	$(eval ART_VER_$(p)?=$(VER_$(p)))\
+	$(eval ART_$(p)?=$(PYTHON_SITE_REL)/$(p)-$(ART_VER_$(p))-py$(VER_MAJMIN_python).egg))
 
 libs: $(DEPS_LIB)
 tools: $(DEPS_TOOL)
@@ -475,10 +481,16 @@ $(ART_uboottools): | $(ART_pkgconfig)
 		tools/{mk{,env}image,env/fw_printenv,img2srec,dumpimage,netconsole,jtagconsole,ncb}
 	cd $(DIR) && ln -sf fw_printenv $(HPREFIX)/bin/fw_setenv
 
+DEPS_PY_PKGS=$(filter-out setuptools,$(DEPS_PY))
 PY_ARTS=$(foreach d,$(DEPS_PY),$(ART_$(d)))
-$(PY_ARTS): $(ART_python)
+PY_ARTS_PKGS=$(foreach d,$(DEPS_PY_PKGS),$(ART_$(d)))
+$(ART_setuptools): $(ART_python)
+	cd $(DIR) && PYTHONPATH=$(PYTHON_SITE):$(PYTHONPATH) \
+		$(PYTHON) bootstrap.py && \
+		$(PYTHON) setup.py install --prefix=$(HPREFIX)
+$(PY_ARTS_PKGS): $(ART_python)
 	cd $(DIR) && PYTHONPATH=$(PYTHON_SITE):$(PYTHONPATH) \
 		$(PYTHON) setup.py install --prefix=$(HPREFIX)
 
 # All python packages depend on setuptools
-$(foreach d,$(filter-out setuptools,$(DEPS_PY)),$(eval $(ART_$(d)): $(ART_setuptools)))
+$(foreach d,$(DEPS_PY_PKGS),$(eval $(ART_$(d)): $(ART_setuptools)))
