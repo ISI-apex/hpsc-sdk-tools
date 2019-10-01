@@ -235,9 +235,15 @@ ART_texinfo=$(BIN)/makeinfo
 
 # u-boot >=2018.05 requires GCC >= 6 (but 2018.05 breaks, so we patch 2019.01)
 VER_uboottools=2019.01
+# Option A: Gitlab
+#VER_HASH_uboottools=d3689267f92c5956e09cc7d1baa4700141662bff
+#URL_uboottools=https://gitlab.denx.de/u-boot/u-boot/-/archive/v$(VER_uboottools)
+#DIR_uboottools=u-boot-v$(VER_uboottools)-$(VER_HASH_uboottools)
+# Option B: FTP server
 URL_uboottools=ftp://ftp.denx.de/pub/u-boot
-TARBALL_uboottools=u-boot-$(VER_uboottools).tar.bz2
 DIR_uboottools=u-boot-$(VER_uboottools)
+
+TARBALL_uboottools=u-boot-$(VER_uboottools).tar.bz2
 ART_uboottools=$(BIN)/mkimage
 
 # SSW makefile requires make >= 3.81
