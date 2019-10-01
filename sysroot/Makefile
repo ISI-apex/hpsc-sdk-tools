@@ -450,7 +450,7 @@ $(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_meson) $(ART_libffi) \
 	       $(ART_pcre) $(ART_util_linux)
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/glib/*.patch)
 	cd $(DIR) && $(SYSROOT_VARS) && \
-		meson --prefix=$(HPREFIX) --libdir=$(LIB) \
+		meson --prefix=$(HPREFIX) --libdir=$(LIBDIR) \
 			--pkg-config-path=$(PKGCFG_PATH) _build && \
 		ninja -C _build && \
 		ninja -C _build install
