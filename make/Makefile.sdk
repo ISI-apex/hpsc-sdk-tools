@@ -311,7 +311,7 @@ DEPS_EXTERN=\
 	gdb \
 
 # HPSC SDK (Qemu) requires GDB with multi-arch support for debugging
-VER_gdb=8.3
+VER_gdb=8.3.1
 URL_gdb=https://ftp.gnu.org/gnu/gdb
 TARBALL_gdb=gdb-$(VER_gdb).tar.xz
 DIR_gdb=gdb-$(VER_gdb)
