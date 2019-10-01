@@ -180,7 +180,7 @@ VER_PATCH_glib=0
 VER_glib=$(VER_MAJMIN_glib).$(VER_PATCH_glib)
 TARBALL_glib=glib-$(VER_glib).tar.xz
 URL_glib=http://ftp.gnome.org/pub/gnome/sources/glib/$(VER_MAJMIN_glib)
-ART_glib=$(PC)/glib-2.0.pc
+ART_glib=$(PC64)/glib-2.0.pc
 
 VER_pixman=0.38.4
 URL_pixman=https://www.cairographics.org/releases
@@ -441,11 +441,12 @@ $(ART_re2c) \
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
-$(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_libffi) $(ART_pcre) $(ART_util_linux)
-	cd $(DIR) && $(SYSROOT_VARS) meson --prefix=$(HPREFIX) \
-		--pkg-config-path $(PKGCFG_PATHS) _build
-	cd $(DIR) && ninja -C _build
-	cd $(DIR) && ninja -C _build install
+$(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_meson) $(ART_libffi) \
+	       $(ART_pcre) $(ART_util_linux)
+	cd $(DIR) && $(SYSROOT_VARS) && \
+		meson --prefix=$(HPREFIX) --pkg-config-path $(PKGCFG_PATHS) _build && \
+		ninja -C _build && \
+		ninja -C _build install
 
 $(ART_libcap): | $(ART_pkgconfig) $(ART_attr)
 	$(PATCH) -d $(DIR) -p1 < $(wildcard $(PATCHES)/libcap/*.patch)
