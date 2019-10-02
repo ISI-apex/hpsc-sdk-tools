@@ -88,15 +88,13 @@ try:
     cfg = IniCfg(args.config)
 
     fmt, = cfg.get_props(args.memory, 'image_format')
-    if fmt == "raw": # alias
-        fmt = "bin"
 
     fout = open(args.output, "wb")
     fmap_it = MemMap.iter_mem(fmap, args.memory)
     try:
-        if fmt in ["raw", "bin", "vhex"]:
+        if fmt in ["bin", "vhex"]:
             make_bin_image(fout, fmap_it, args.memory, cfg, fmt)
-        elif fmt in ["nand.bin", "nand.raw"]:
+        elif fmt  == "nand.bin":
             make_nand_image(fout, fmap_it, args.memory, cfg)
         else:
             raise MkMemImgException(

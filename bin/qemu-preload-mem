@@ -49,7 +49,8 @@ def run_path(fname):
 # image files (e.g. makefile).
 def composite_image_name(cfg, m):
     fmt, = cfg.get_props(m, 'image_format')
-    return m + args.suffix + '.' + fmt
+    img_suffix = cfg.get_prop(m, 'image_suffix', '')
+    return m + args.suffix + '.' + fmt + img_suffix
 
 def issue_drive_arg(fout, cfg, m, load_file):
     iface, fmt, idx = cfg.get_props(m, 'qemu_if', 'qemu_format', 'qemu_index')

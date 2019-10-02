@@ -46,7 +46,8 @@ def bld_path(fname):
 # image files (e.g. makefile).
 def composite_image_name(cfg, m):
     fmt, = cfg.get_props(m, 'image_format')
-    return m + args.suffix + '.' + fmt
+    img_suffix = cfg.get_prop(m, 'image_suffix', '')
+    return m + args.suffix + '.' + fmt + img_suffix
 
 fout = open(args.output, "w")
 
