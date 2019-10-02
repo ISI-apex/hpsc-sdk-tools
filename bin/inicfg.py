@@ -14,6 +14,14 @@ class IniCfg:
         self.cfg.read(ini_file)
         self.collapsed = {} # cache
 
+        # Hide all inherited nodes ("base classes are abstract")
+        bases = []
+        for s in self.cfg.sections():
+            if self.cfg.has_option(s, self.INHERIT_OPT):
+                base = self.cfg.get(s, self.INHERIT_OPT)
+                bases.append(base)
+        self.base_sections = [s for s in self.cfg.sections() if s not in bases]
+
     def collapse(self, sect):
         """Inherit properties from sections arranged in a hierarchy"""
         if not self.cfg.has_section(sect):
@@ -59,4 +67,4 @@ class IniCfg:
         return fallback
 
     def sections(self):
-        return self.cfg.sections()
+        return self.base_sections
