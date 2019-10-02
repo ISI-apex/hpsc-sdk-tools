@@ -96,7 +96,7 @@ try:
     try:
         if fmt in ["raw", "bin", "vhex"]:
             make_bin_image(fout, fmap_it, args.memory, cfg, fmt)
-        elif fmt == "nand.bin":
+        elif fmt in ["nand.bin", "nand.raw"]:
             make_nand_image(fout, fmap_it, args.memory, cfg)
         else:
             raise MkMemImgException(
