@@ -108,6 +108,19 @@ try:
         except Exception as e:
             raise ParseException("%s:%u: exception" % (args.map_file, line)) from e
 
+    for m in cfg.sections():
+        if bool(cfg.get_prop(m, 'skip', False)):
+            continue
+
+        initialize = cfg.get_prop(m, 'initialize', False)
+        if m not in whole_images and m not in composite_images and initialize:
+            # instruct for creation of a composite image with no components
+            composite_images[m] = True
+            bld_image = bld_path(composite_image_name(cfg, m))
+            composite_artifacts[bld_image] = [] # no blobs => empty image
+            zebu_id, = cfg.get_props(m, 'zebu_id')
+            zebu_map[zebu_id] = bld_image
+
     for zebu_id, load_file in zebu_map.items():
         print(zebu_id, load_file, file=fout)
 
