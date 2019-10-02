@@ -64,7 +64,7 @@ try:
 
     for line, m, k, addr, fname in MemMap.iter(fmap):
         try:
-            if cfg.get_prop(m, 'skip', False):
+            if bool(cfg.get_prop(m, 'skip', False)):
                 continue
 
             if addr == MemMap.DEST_ELF: # load file according to elf header
