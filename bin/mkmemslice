@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+
+from inicfg import IniCfg
+
+parser = argparse.ArgumentParser(
+    description="Cut a slice out of a binary image according to mem config")
+parser.add_argument('input_image',
+    help='Whole image from which to cut the slice')
+parser.add_argument('--config', '-c', required=True,
+    help='Input file with size and layout parameters of memory in INI format')
+parser.add_argument('--memory', '-m', required=True,
+    help='Name of memory slice (a section in config file)')
+parser.add_argument('--output', '-o', required=True,
+    help='Output filename where to save the slice')
+args = parser.parse_args()
+
+class MkMemImgException(Exception):
+    def __init__(self, message, line=0):
+        self.line = line
+        self.message = message
+
+try:
+    cfg = IniCfg(args.config)
+
+    offset = cfg.get_prop_as_int(args.memory, 'offset')
+    size = cfg.get_prop_as_size(args.memory, 'size')
+
+    fin = open(args.input_image, "rb")
+    fin.seek(offset)
+
+    fout = open(args.output, "wb")
+    remaining_size = size
+    while remaining_size > 0:
+        d = fin.read(min(remaining_size, 4096))
+        if len(d) == 0:
+            break
+        fout.write(d)
+        assert remaining_size >= len(d)
+        remaining_size -= len(d)
+    fout.close()
+
+except: # when used from makefiles, important to not create output on failure
+    os.remove(args.output)
+    raise
