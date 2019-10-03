@@ -30,6 +30,8 @@ parser.add_argument('--run-dir',  default='',
     help='Relative path to directory where images are to be copied for each run')
 parser.add_argument('--artifacts',
     help='Name of makefile variable where to save list of artifacts')
+parser.add_argument('--prereqs',
+    help='Name of makefile variable where to save list of prereqs of memory images')
 args = parser.parse_args()
 
 class ParseException(Exception):
@@ -138,12 +140,13 @@ except: # when used from makefiles, important to not create output on failure
     raise
 
 if args.rules:
-    if args.artifacts is None:
-        raise Exception("missing argument: --artifacts (required with --rules)")
     frules = open(args.rules, "w")
     try:
-        MemMap.Rules.write_artifacts(frules, args.artifacts,
-            prereqs.keys(), composite_artifacts.keys(), privatized_artifacts.keys())
+        if args.artifacts:
+            MemMap.Rules.write_artifacts(frules, args.artifacts,
+                composite_artifacts.keys(), privatized_artifacts.keys())
+        if args.prereqs:
+            MemMap.Rules.write_artifacts(frules, args.prereqs, prereqs.keys())
         MemMap.Rules.write_relations(frules,
             composite_artifacts, privatized_artifacts)
         frules.close()
