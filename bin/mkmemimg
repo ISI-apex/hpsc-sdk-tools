@@ -45,7 +45,10 @@ def make_bin_image(fout, fmap_it, m, cgf, fmt):
             raise MkMemImgException("unsupported image format: %s" % fmt, line)
         fin.close()
 
-def make_nand_image(fout, fmap_it, m, cfg):
+def make_nand_image(fout, fmap_it, m, cfg, fmt):
+    if fmt == "vhex":
+        raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format", line)
+
     blocks, ppb, page, oob = cfg.get_props(m, 'blocks', 'ppb', 'page', 'oob')
     s = int(blocks) * int(ppb) * (int(page) + int(oob))
     print("Creating NAND image of size:", s, "bytes =", float(s) / (1<<20), " MB")
@@ -72,18 +75,18 @@ try:
     fmap = open(args.map_file, "r")
     cfg = IniCfg(args.config)
 
-    fmt, = cfg.get_props(args.memory, 'image_format')
+    mem_type, fmt = cfg.get_props(args.memory, 'type', 'image_format')
 
     fout = open(args.output, "wb")
     fmap_it = MemMap.iter_mem(fmap, args.memory)
     try:
-        if fmt in ["bin", "vhex"]:
+        if mem_type == "ram":
             make_bin_image(fout, fmap_it, args.memory, cfg, fmt)
-        elif fmt  == "nand.bin":
-            make_nand_image(fout, fmap_it, args.memory, cfg)
+        elif mem_type == "nand":
+            make_nand_image(fout, fmap_it, args.memory, cfg, fmt)
         else:
             raise MkMemImgException(
-                "invalid image format for memory '%s': %s" % (args.memory, fmt))
+                "invalid type of memory for '%s': %s" % (args.memory, mem_type))
 
     except MkMemImgException as e:
         raise MkMemImgException("%s:%u: %s" % (args.map_file, e.line, e.message)) from e
