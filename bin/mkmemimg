@@ -24,23 +24,8 @@ class MkMemImgException(Exception):
         self.line = line
         self.message = message
 
-def size_from_iec_str(s):
-    m = re.match(r'([0-9]+)([KMG]?)', s)
-    if not m:
-        raise MkMemImgException("size not in IEC format: '%s'" % s)
-    size = int(m.group(1))
-    suffix = m.group(2)
-    if suffix == 'G':
-        size <<= 30
-    if suffix == 'M':
-        size <<= 20
-    if suffix == 'K':
-        size <<= 10
-    return size
-
 def make_bin_image(fout, fmap_it, m, cgf, fmt):
-    size, = cfg.get_props(m, 'size')
-    size = size_from_iec_str(size)
+    size = cfg.get_prop_as_size(m, 'size')
     fout.truncate(size)
     for line, k, addr, fname in fmap_it:
         addr = int(addr, 16)
