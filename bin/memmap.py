@@ -5,7 +5,6 @@ import os
 
 class MemMap:
     # Special values of destination/address field
-    DEST_WHOLE = '@WHOLE'
     DEST_ELF = '@ELF'
 
     class MemMapException(Exception):
