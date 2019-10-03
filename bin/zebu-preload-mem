@@ -21,6 +21,8 @@ parser.add_argument('--root', '-r', default='',
     help='Top level directory to append to relative paths')
 parser.add_argument('--suffix', default='',
     help='Suffix to append when forming filename for composite image from memory id')
+parser.add_argument('--extension-bin', default='raw',
+    help='Extension to append to binary images (Zebu quirk)')
 
 # For rule generation for makefiles that would assemble the image files
 parser.add_argument('--rules',
@@ -53,6 +55,12 @@ def composite_image_name(cfg, m):
 def slice_image_name(cfg, parent_mem, slice_mem):
     fmt = image_fmt(cfg, parent_mem)
     return slice_mem + '.slice' + args.suffix + '.' + fmt
+
+def zebu_load_path(image_path, fmt):
+    load_path = abspath(image_path)
+    if args.extension_bin and fmt == "bin":
+        load_path += '.' + args.extension_bin
+    return load_path
 
 def is_sliced(cfg, m):
     return bool(cfg.get_prop(m, 'sliced', False))
@@ -106,6 +114,7 @@ try:
 
             else:
                 bld_image = bld_path(composite_image_name(cfg, m))
+                fmt = image_fmt(cfg, m)
                 if m not in composite_images:
                     is_component = False
                     composite_images[m] = True
@@ -127,7 +136,7 @@ try:
                     artifact_relations[slice_bld_image] = [bld_image]
 
                     zebu_id, = cfg.get_props(sl, 'zebu_id')
-                    zebu_map[zebu_id] = slice_bld_image
+                    zebu_map[zebu_id] = zebu_load_path(slice_bld_image, fmt)
                 continue
 
             # Striped memories, we load the same image into all
@@ -145,7 +154,7 @@ try:
                 zebu_ids = [zebu_id]
 
             for zebu_id in zebu_ids:
-                zebu_map[zebu_id] = abspath(bld_image)
+                zebu_map[zebu_id] = zebu_load_path(bld_image, fmt)
 
         except Exception as e:
             raise ParseException("%s:%u: exception" % (args.map_file, line)) from e
@@ -165,14 +174,18 @@ try:
                 composite_images[m] = True
                 parent = get_slice_parent(cfg, m)
                 if parent is not None:
+                    fmt = image_fmt(cfg, parent)
                     bld_image = bld_path(composite_image_name(cfg, parent))
                     slice_bld_image = bld_path(slice_image_name(cfg, parent, m))
                     artifact_relations[slice_bld_image] = [bld_image]
+                    load_image = slice_bld_image
                 else:
+                    fmt = image_fmt(cfg, m)
                     bld_image = bld_path(composite_image_name(cfg, m))
                     artifact_relations[bld_image] = [] # no blobs => empty image
+                    load_image = bld_image
                 zebu_id, = cfg.get_props(m, 'zebu_id')
-                zebu_map[zebu_id] = bld_image
+                zebu_map[zebu_id] = zebu_load_path(load_image, fmt)
 
     for zebu_id, load_file in zebu_map.items():
         print(zebu_id, load_file, file=fout)
