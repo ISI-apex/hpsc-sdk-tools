@@ -44,10 +44,44 @@ def bld_path(fname):
 
 # This naming convention must be observed by whoever is assembling the actual
 # image files (e.g. makefile).
-def composite_image_name(cfg, m):
+def image_fmt(cfg, m):
     fmt, = cfg.get_props(m, 'image_format')
-    img_suffix = cfg.get_prop(m, 'image_suffix', '')
-    return m + args.suffix + '.' + fmt + img_suffix
+    return fmt
+def composite_image_name(cfg, m):
+    fmt = image_fmt(cfg, m)
+    return m + args.suffix + '.' + fmt
+def slice_image_name(cfg, parent_mem, slice_mem):
+    fmt = image_fmt(cfg, parent_mem)
+    return slice_mem + '.slice' + args.suffix + '.' + fmt
+
+def is_sliced(cfg, m):
+    return bool(cfg.get_prop(m, 'sliced', False))
+
+def get_slice_parent(cfg, m):
+    return cfg.get_prop(m, 'slice_of', None)
+
+def get_slices(cfg, m):
+    """Return slices of a parent memory"""
+    slices = []
+    for s in cfg.sections():
+        if s == m:
+            continue
+        parent = get_slice_parent(cfg, m)
+        if parent is not None and parent == m:
+            slices.append(s)
+    return slices
+
+def check_initialize(cfg, m):
+    """Lookup 'initialize' flag on either the slice or parent"""
+    initialize_prop = 'initialize'
+    initialize = bool(cfg.get_prop(m, initialize_prop, False))
+    if initialize:
+        return True
+    # else check parent
+    parent_mem = get_slice_parent(cfg, m)
+    if parent_mem is not None:
+        return bool(cfg.get_prop(parent_mem, initialize_prop, False))
+    return False
 
 fout = open(args.output, "w")
 
@@ -57,9 +91,8 @@ try:
     fmap = open(args.map_file, "r")
 
     # Used for rule generation, and for guarding against duplicates
-    whole_images = {}
     composite_images = {} # indexed by memory id
-    composite_artifacts = {} # indexed by (relative) image file path
+    artifact_relations = {} # indexed by (relative) image file path
 
     zebu_map = OrderedDict()
 
@@ -71,56 +104,75 @@ try:
             if addr == MemMap.DEST_ELF: # load file according to elf header
                 raise ParseException("loading ELF by sections is not implemented")
 
-            elif addr == MemMap.DEST_WHOLE: # whole image
-                if m in whole_images or m in composite_images:
-                    raise ParseException("an image was already specified for mem %s" % m)
-                whole_images[m] = fname
-                load_file = abspath(fname)
-
-            else:  # composite image, gather up its components
-                # assume someone will create an image, named according to convention
+            else:
                 bld_image = bld_path(composite_image_name(cfg, m))
                 if m not in composite_images:
+                    is_component = False
                     composite_images[m] = True
-                    composite_artifacts[bld_image] = []
-                    load_file = abspath(bld_image)
+                    artifact_relations[bld_image] = []
                 else:
-                    load_file = None
-                composite_artifacts[bld_image].append(fname)
+                    is_component = True
+                artifact_relations[bld_image].append(fname)
 
-            if load_file is not None:
-                # Striped memories, we load the same image into all
-                # Could also build striped images, but there's no point.
-                if bool(cfg.get_prop(m, 'striped', False)):
-                    banks, = cfg.get_props(m, 'banks')
-                    banks = int(banks)
-                    zebu_ids = []
-                    for b in range(banks):
-                        mem_id = '%s.%u' % (m, b)
-                        zebu_id, = cfg.get_props(mem_id, 'zebu_id')
-                        zebu_ids.append(zebu_id)
-                else:
-                    zebu_id, = cfg.get_props(m, 'zebu_id')
-                    zebu_ids = [zebu_id]
+            if is_component:
+                continue
 
-                for zebu_id in zebu_ids:
-                    zebu_map[zebu_id] = load_file
+            # One memory chip model composed of separate mem arrays
+            if is_sliced(cfg, m):
+                slices = get_slices(cfg, m)
+                for sl in slices:
+                    slice_bld_image = bld_path(slice_image_name(cfg, m, sl))
+
+                    artifact_relations[bld_image] = []
+                    artifact_relations[slice_bld_image] = [bld_image]
+
+                    zebu_id, = cfg.get_props(sl, 'zebu_id')
+                    zebu_map[zebu_id] = slice_bld_image
+                continue
+
+            # Striped memories, we load the same image into all
+            # Could also build striped images, but there's no point.
+            if bool(cfg.get_prop(m, 'striped', False)):
+                banks, = cfg.get_props(m, 'banks')
+                banks = int(banks)
+                zebu_ids = []
+                for b in range(banks):
+                    mem_id = '%s.%u' % (m, b)
+                    zebu_id, = cfg.get_props(mem_id, 'zebu_id')
+                    zebu_ids.append(zebu_id)
+            else:
+                zebu_id, = cfg.get_props(m, 'zebu_id')
+                zebu_ids = [zebu_id]
+
+            for zebu_id in zebu_ids:
+                zebu_map[zebu_id] = abspath(bld_image)
 
         except Exception as e:
             raise ParseException("%s:%u: exception" % (args.map_file, line)) from e
 
+    # Memories marked initialize need to be preloaded even if the memory
+    # map does not specify any content for them.
     for m in cfg.sections():
         if bool(cfg.get_prop(m, 'skip', False)):
             continue
 
-        initialize = cfg.get_prop(m, 'initialize', False)
-        if m not in whole_images and m not in composite_images and initialize:
-            # instruct for creation of a composite image with no components
-            composite_images[m] = True
-            bld_image = bld_path(composite_image_name(cfg, m))
-            composite_artifacts[bld_image] = [] # no blobs => empty image
-            zebu_id, = cfg.get_props(m, 'zebu_id')
-            zebu_map[zebu_id] = bld_image
+        if m not in composite_images:
+            sliced = bool(cfg.get_prop(m, 'sliced', False))
+            if sliced:
+                continue # will do stuff for the children
+            if check_initialize(cfg, m):
+                # instruct for creation of a composite image with no components
+                composite_images[m] = True
+                parent = get_slice_parent(cfg, m)
+                if parent is not None:
+                    bld_image = bld_path(composite_image_name(cfg, parent))
+                    slice_bld_image = bld_path(slice_image_name(cfg, parent, m))
+                    artifact_relations[slice_bld_image] = [bld_image]
+                else:
+                    bld_image = bld_path(composite_image_name(cfg, m))
+                    artifact_relations[bld_image] = [] # no blobs => empty image
+                zebu_id, = cfg.get_props(m, 'zebu_id')
+                zebu_map[zebu_id] = bld_image
 
     for zebu_id, load_file in zebu_map.items():
         print(zebu_id, load_file, file=fout)
@@ -138,8 +190,8 @@ if args.rules:
     frules = open(args.rules, "w")
     try:
         MemMap.Rules.write_artifacts(frules, args.artifacts,
-            whole_images.values(), composite_artifacts.keys())
-        MemMap.Rules.write_relations(frules, composite_artifacts)
+            artifact_relations.keys())
+        MemMap.Rules.write_relations(frules, artifact_relations)
         frules.close()
     except: # when used from makefiles, important to not create output on failure
         os.remove(args.rules)
