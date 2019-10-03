@@ -5,7 +5,7 @@ import re
 import argparse
 
 from memmap import MemMap
-from inicfg import IniCfg
+from inicfg import IniCfg, int_autobase
 
 parser = argparse.ArgumentParser(
     description="Compose a binary memory image from files defined in a memory map")
@@ -24,11 +24,29 @@ class MkMemImgException(Exception):
         self.line = line
         self.message = message
 
-def make_bin_image(fout, fmap_it, m, cgf, fmt):
-    size = cfg.get_prop_as_size(m, 'size')
-    fout.truncate(size)
+def fill_image_with_ones(fout, fmt, size):
+    if fmt == "bin":
+        buf = b'\xFF' * 4096
+        while size > 0:
+            if size > len(buf):
+                fout.write(buf)
+                size -= len(buf)
+            else:
+                fout.write(b'\xFF' * size)
+                size -= size
+    elif fmt == "vhex":
+        raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format")
+    else:
+        raise MkMemImgException("unrecognized image format: %s" % fmt)
+
+def fill_image(fout, fmt, size, fmap_it):
+    remaining_space = size
     for line, k, addr, fname in fmap_it:
-        addr = int(addr, 16)
+        if addr == MemMap.DEST_ELF:
+            raise MkMemImgException(
+                "NOT IMPLEMENTED: composing image from ELF")
+        addr = int_autobase(addr)
+
         fin = open(fname, "rb")
         if fmt == "bin":
             fout.seek(addr)
@@ -36,40 +54,18 @@ def make_bin_image(fout, fmap_it, m, cgf, fmt):
                 d = fin.read(4096)
                 if len(d) == 0:
                     break
+                if remaining_space < len(d):
+                    raise MkMemImgException("content overflowed image")
                 fout.write(d)
+                remaining_space -= len(d)
         elif fmt == "vhex":
             print("@%x" % addr, file=fout)
             # TODO: re-use hpsc-objcopy's classes
             raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format", line)
-        else:
-            raise MkMemImgException("unsupported image format: %s" % fmt, line)
         fin.close()
 
-def make_nand_image(fout, fmap_it, m, cfg, fmt):
-    if fmt == "vhex":
-        raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format", line)
-
-    blocks, ppb, page, oob = cfg.get_props(m, 'blocks', 'ppb', 'page', 'oob')
-    s = int(blocks) * int(ppb) * (int(page) + int(oob))
-    print("Creating NAND image of size:", s, "bytes =", float(s) / (1<<20), " MB")
-    buf = b'\xFF' * 4096
-    while s > 0:
-        if s > len(buf):
-            fout.write(buf)
-            s -= len(buf)
-        else:
-            fout.write(b'\xFF' * s)
-            s -= s
-
-    for line, k, addr, fname in fmap_it:
-        addr = int(addr, 16)
-        fout.seek(addr)
-        fin = open(fname, "rb")
-        while True:
-            d = fin.read(4096)
-            if len(d) == 0:
-                break
-            fout.write(d)
+def size_str(size):
+    return "%u bytes = %.4f MB" % (size, float(size) / (1<<20))
 
 try:
     fmap = open(args.map_file, "r")
@@ -81,9 +77,30 @@ try:
     fmap_it = MemMap.iter_mem(fmap, args.memory)
     try:
         if mem_type == "ram":
-            make_bin_image(fout, fmap_it, args.memory, cfg, fmt)
+            size = cfg.get_prop_as_size(args.memory, 'size')
+            print("Creating %s image of size:" % mem_type, size_str(size))
+            if fmt == "bin":
+                fout = open(args.output, "wb")
+                fout.truncate(size)
+                fill_image(fout, fmt, size, fmap_it)
+                fout.close()
+            elif fmt == "vhex":
+                fout = open(args.output, "w")
+                raise MkMemImgException(
+                    "vhex format not implemented (mem %s)" % args.memory)
+                fout.close()
         elif mem_type == "nand":
-            make_nand_image(fout, fmap_it, args.memory, cfg, fmt)
+            if fmt == "vhex":
+                raise MkMemImgException(
+                    "vhex format not implemented (mem %s)" % args.memory)
+            blocks, ppb, page, oob = cfg.get_props(args.memory,
+                'blocks', 'ppb', 'page', 'oob')
+            size = int(blocks) * int(ppb) * (int(page) + int(oob))
+            print("Creating %s image of size:" % mem_type, size_str(size))
+            fout = open(args.output, "wb")
+            fill_image_with_ones(fout, fmt, size)
+            fill_image(fout, fmt, size, fmap_it)
+            fout.close()
         else:
             raise MkMemImgException(
                 "invalid type of memory for '%s': %s" % (args.memory, mem_type))
@@ -94,7 +111,6 @@ try:
         raise MkMemImgException("%s: exception" % (args.map_file)) from e
 
     fmap.close()
-    fout.close()
 
 except: # when used from makefiles, important to not create output on failure
     os.remove(args.output)
