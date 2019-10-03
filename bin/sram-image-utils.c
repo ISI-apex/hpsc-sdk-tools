@@ -27,7 +27,7 @@
 #define STR_FMT(s) _STR_FMT(s)
 
 static int file_add (char * fname, char * fname_add,
-                     char * fname_id, uint64_t load_addr64);
+                     char * fname_id, uint64_t load_addr64, uint32_t entry_offset);
 
 /* Layout of NVRAM */
 #define BL0_SECTION_LIMIT	0x300000
@@ -211,7 +211,7 @@ static int iectoull(uint64_t *n, const char *str)
     return 0;
 }
 
-static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fname_map, uint32_t *entry_offset)
+static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fname_map, uint32_t entry_offset)
 {
     FILE *fmap = fopen(fname_map, "r");
     char *line = NULL;
@@ -526,7 +526,7 @@ int main (int argc, char ** argv)
                     }
                     fsize = val;
                 }
-				if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map))) {
+				if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map, entry_offset))) {
                     unlink(fname_sram);
                 }
                 return rc;
