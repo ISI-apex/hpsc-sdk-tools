@@ -68,7 +68,6 @@ void usage (char * executable)
 {
     printf("Usage: %s <command> <filename> [command parameters] \n", executable);
     printf("'%s help' for more information\n\n", executable);
-    exit(0);
 }
 
 void show_help (char * executable)
@@ -213,7 +212,7 @@ static int iectoull(uint64_t *n, const char *str)
 
 static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fname_map, uint32_t entry_offset)
 {
-    FILE *fmap = fopen(fname_map, "r");
+    FILE *fmap;
     char *line = NULL;
     size_t line_size = 0;
     ssize_t line_len = 0;
@@ -222,6 +221,12 @@ static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fn
     char file_id[MAX_PATH_LEN + 1];
     char file_path[MAX_PATH_LEN + 1];
     uint64_t file_addr;
+
+     fmap = fopen(fname_map, "r");
+    if (!fmap) {
+        perror("failed to open map file");
+        return 1;
+    }
 
     if (sram_file_create(fname, mem_size)) {
         return 1;
@@ -480,10 +485,11 @@ int main (int argc, char ** argv)
 
     if (argc < 2) {
         usage(argv[0]);
+        return 1;
     }
     switch (argv[1][0]) {
         case 'c': /* create an empty image */
-                 if (argc != 4) { usage(argv[0]); }
+                 if (argc != 4) { usage(argv[0]); return 1; }
                  fname_sram = argv[2];
                  if (argv[3][0] == '0' && argv[3][1] == 'x') 
                      fsize = strtoul(argv[3], &stopstring, 16);
@@ -491,7 +497,7 @@ int main (int argc, char ** argv)
                      fsize = strtoul(argv[3], &stopstring, 10);
                  return sram_file_create(fname_sram, fsize);
         case 'a': /* add a file to the image */
-                 if (argc != 7) { usage(argv[0]); }
+                 if (argc != 7) { usage(argv[0]); return 1; }
                  fname_sram = argv[2];
                  fname_add = argv[3];
                  fname_id = argv[4];
@@ -505,10 +511,10 @@ int main (int argc, char ** argv)
                      load_addr64 = strtoul(argv[5], &stopstring, 10);
                  return file_add(fname_sram, fname_add, fname_id, load_addr64, entry_offset);
         case 'm': /* create file system image from map specification file */
-			if (argc != 6) { usage(argv[0]); }
-				fname_sram = argv[2];
+            if (argc != 6) { usage(argv[0]); return 1; }
+                fname_sram = argv[2];
                 fsize_str = argv[3];
-				fname_map = argv[4];
+                fname_map = argv[4];
                 entry_offset_str = argv[5];
                  if (entry_offset_str[0] == '0' && entry_offset_str[1] == 'x')
                      entry_offset = (uint32_t) strtoul(entry_offset_str, &stopstring, 16);
@@ -526,12 +532,12 @@ int main (int argc, char ** argv)
                     }
                     fsize = val;
                 }
-				if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map, entry_offset))) {
+                if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map, entry_offset))) {
                     unlink(fname_sram);
                 }
                 return rc;
         case 'b': /* set up configure_blob */
-                 if (argc != 6) { usage(argv[0]); }
+                 if (argc != 6) { usage(argv[0]); return 1; }
                  bl0_blob config_blob;
                  uint32_t entry_offset;
                  fname_sram = argv[2];
@@ -547,7 +553,7 @@ int main (int argc, char ** argv)
                  cp_blob(&config_blob, fname_sram, fname_add, load_addr64, entry_offset);
                  break;
         case 's': /* show the header information */
-                 if (argc != 3) { usage(argv[0]); }
+                 if (argc != 3) { usage(argv[0]); return 1; }
                  fname_sram = argv[2];
                  file_show(fname_sram);
                  break;
@@ -555,13 +561,13 @@ int main (int argc, char ** argv)
                  show_help(argv[0]);
                  break;
         case 'l': /* load to the ram */
-                 if (argc != 3) { usage(argv[0]); }
+                 if (argc != 3) { usage(argv[0]); return 1; }
                  fname_sram = argv[2];
                  file_load_all(fname_sram);
                  break;
         default:
                  usage(argv[0]);
-                 break;
+                 return 1;
     }
     return 0;
 }
