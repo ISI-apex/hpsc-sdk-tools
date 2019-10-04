@@ -476,7 +476,6 @@ void cp_blob(bl0_blob * config_blob, char * fname_sram, char * fname, unsigned l
 int main (int argc, char ** argv)
 {
     char *fname_sram, *fname_map, *fname_add, *fname_id, *fsize_str, *stopstring;
-    char *entry_offset_str;
     uint32_t fsize;
     uint64_t load_addr64;
     uint64_t val;
@@ -511,15 +510,10 @@ int main (int argc, char ** argv)
                      load_addr64 = strtoul(argv[5], &stopstring, 10);
                  return file_add(fname_sram, fname_add, fname_id, load_addr64, entry_offset);
         case 'm': /* create file system image from map specification file */
-            if (argc != 6) { usage(argv[0]); return 1; }
+            if (argc != 5) { usage(argv[0]); return 1; }
                 fname_sram = argv[2];
                 fsize_str = argv[3];
                 fname_map = argv[4];
-                entry_offset_str = argv[5];
-                 if (entry_offset_str[0] == '0' && entry_offset_str[1] == 'x')
-                     entry_offset = (uint32_t) strtoul(entry_offset_str, &stopstring, 16);
-                 else 
-                     entry_offset = (uint32_t) strtoul(entry_offset_str, &stopstring, 10);
                 if (fsize_str[0] == '0' && fsize_str[1] == 'x')  {
                     fsize = strtoul(fsize_str, &stopstring, 16);
                 } else  {
@@ -532,7 +526,8 @@ int main (int argc, char ** argv)
                     }
                     fsize = val;
                 }
-                if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map, entry_offset))) {
+                if ((rc = sram_file_create_from_map(fname_sram, fsize, fname_map,
+                                                    /* entry offset */ 0x0))) {
                     unlink(fname_sram);
                 }
                 return rc;
