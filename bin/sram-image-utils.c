@@ -27,7 +27,8 @@
 #define STR_FMT(s) _STR_FMT(s)
 
 static int file_add (char * fname, char * fname_add,
-                     char * fname_id, uint64_t load_addr64, uint32_t entry_offset);
+                     char * fname_id, uint64_t load_addr64,
+                     uint32_t entry_offset, uint32_t bl_fs_start);
 
 /* Layout of NVRAM */
 #define BL0_SECTION_LIMIT	0x300000
@@ -145,7 +146,7 @@ void file_show (char * fname)
     }
 }
 
-int sram_file_create (char * fname, uint32_t fsize)
+int sram_file_create (char * fname, uint32_t fsize, uint32_t bl_fs_start)
 {
     char buffer[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     uint32_t i, rem;
@@ -171,9 +172,9 @@ int sram_file_create (char * fname, uint32_t fsize)
        low_mark_data :  sizeof(global_table)
        number of files: 0 */
     gt.high_mark_fd = sizeof(gt);
-    gt.low_mark_data = fsize - BL_FS_START;
+    gt.low_mark_data = fsize - bl_fs_start;
     gt.n_files = 0;
-    gt.fsize = fsize - (sizeof(gt) + BL_FS_START);
+    gt.fsize = fsize - (sizeof(gt) + bl_fs_start);
     ptr1 = (unsigned char *)&gt;
     ptr2 = (unsigned char *)(gt.ecc);
     data_size = (unsigned long) ptr2 - (unsigned long) ptr1;
@@ -181,7 +182,7 @@ int sram_file_create (char * fname, uint32_t fsize)
     calculate_ecc(ptr1, data_size, ptr2);
 
     ptr = (char *)&gt;
-    fseek(fp, BL_FS_START, SEEK_SET);	
+    fseek(fp, bl_fs_start, SEEK_SET);
     fwrite(ptr, sizeof(gt), 1, fp);
 
     fclose(fp);
@@ -228,7 +229,7 @@ static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fn
         return 1;
     }
 
-    if (sram_file_create(fname, mem_size)) {
+    if (sram_file_create(fname, mem_size, 0x0)) {
         return 1;
     }
 
@@ -245,7 +246,7 @@ static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fn
             fprintf(stderr, "error: %s:%u: syntax error\n", fname_map, line_num);
             return 1;
         }
-        if (file_add(fname, file_path, file_id, file_addr, entry_offset)) {
+        if (file_add(fname, file_path, file_id, file_addr, entry_offset, 0x0)) {
             return 1;
         }
     }
@@ -254,7 +255,7 @@ static int sram_file_create_from_map (char * fname, uint32_t mem_size, char * fn
 }
 
 #define BUF_SIZE 256
-int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_addr64, uint32_t entry_offset)
+int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_addr64, uint32_t entry_offset, uint32_t bl_fs_start)
 {
     FILE *fsram, *f2add;
     uint32_t i, fsize, a_offset, r_offset, rem, iter, load_addr_low, load_addr_high;
@@ -280,7 +281,7 @@ int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_add
     }
 
     /* read global table and file descriptors */
-    fseek(fsram, BL_FS_START, SEEK_SET);
+    fseek(fsram, bl_fs_start, SEEK_SET);
     read_size = fread(ptr, sizeof(gt), 1, fsram);
     fd_buf = (file_descriptor *)malloc(sizeof(file_descriptor) * (gt.n_files + 1));
     read_size = fread(fd_buf, sizeof(file_descriptor) * gt.n_files, 1, fsram);
@@ -293,7 +294,7 @@ int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_add
         return 1;
     }
     r_offset = gt.low_mark_data - fsize;
-    a_offset = r_offset + BL_FS_START;
+    a_offset = r_offset + bl_fs_start;
     while (a_offset & ((1 << (ALIGNMENT_BITS)) - 1)) {
         --a_offset; --r_offset;
     }
@@ -327,7 +328,7 @@ int file_add (char * fname, char * fname_add, char * fname_id, uint64_t load_add
     assert (data_size < sizeof(gt)); 
     calculate_ecc(ptr1, data_size, ptr2);
     ptr = (char *)&gt;
-    fseek(fsram, BL_FS_START, SEEK_SET);
+    fseek(fsram, bl_fs_start, SEEK_SET);
     fwrite(ptr, sizeof(gt), 1, fsram);
 
     /* update file descriptors */
@@ -494,7 +495,7 @@ int main (int argc, char ** argv)
                      fsize = strtoul(argv[3], &stopstring, 16);
                  else 
                      fsize = strtoul(argv[3], &stopstring, 10);
-                 return sram_file_create(fname_sram, fsize);
+                 return sram_file_create(fname_sram, fsize, BL_FS_START);
         case 'a': /* add a file to the image */
                  if (argc != 7) { usage(argv[0]); return 1; }
                  fname_sram = argv[2];
@@ -508,7 +509,8 @@ int main (int argc, char ** argv)
                      load_addr64 = strtoul(argv[5], &stopstring, 16);
                  else
                      load_addr64 = strtoul(argv[5], &stopstring, 10);
-                 return file_add(fname_sram, fname_add, fname_id, load_addr64, entry_offset);
+                 return file_add(fname_sram, fname_add, fname_id, load_addr64,
+                                 entry_offset, BL_FS_START);
         case 'm': /* create file system image from map specification file */
             if (argc != 5) { usage(argv[0]); return 1; }
                 fname_sram = argv[2];
