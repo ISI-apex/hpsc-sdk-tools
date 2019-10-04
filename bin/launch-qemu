@@ -428,20 +428,6 @@ do
 done
 echo
 
-echo "Final Command:"
-echo "${COMMAND[*]}"
-echo
-
-echo "QMP_PORT = ${QMP_PORT}"
-echo "GDB_PORT = ${GDB_PORT}"
-
-if [ "${NET}" = "user" ]
-then
-    echo "FORWARDED PORTS:"
-    echo -e "$FWD_PORTS_INFO"
-fi
-echo
-
 # Real actions (that may generate 'Waiting...' messages commence here)
 
 KILL_CONSOLES=1
@@ -466,5 +452,19 @@ esac
 
 if [ "$DO_RUN" -eq 1 ]
 then
+    echo "Final Command:"
+    echo "${COMMAND[*]}"
+    echo
+
+    echo "QMP_PORT = ${QMP_PORT}"
+    echo "GDB_PORT = ${GDB_PORT}"
+
+    if [ "${NET}" = "user" ]
+    then
+        echo "FORWARDED PORTS:"
+        echo -e "$FWD_PORTS_INFO"
+    fi
+    echo
+
     "${COMMAND[@]}"
 fi
