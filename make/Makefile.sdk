@@ -195,7 +195,7 @@ S_zebu=zebu
 $(S_zebu): $(BLD)/$(DEP_ENV_FILE)
 	$(ZEBU_SHELL) -c 'source $(ZEBU_ENV) && make -C $(S_zebu)'
 $(S_zebu)/clean:
-	$(ZEBU_SHELL) -c 'source $(ZEBU_ENV) && make -C $(S_zebu) clean'; \
+	$(ZEBU_SHELL) -c 'source $(ZEBU_ENV) && make -C $(S_zebu) clean'
 .PHONY: $(S_zebu) $(S_zebu)/clean
 # Zebu is only present on some machines, so user invokes its target explicitly
 # all: $(S_zebu)
