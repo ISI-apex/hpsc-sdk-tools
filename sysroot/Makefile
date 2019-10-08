@@ -34,7 +34,11 @@ PATCHES=patch
 PREFIX=$(SYSROOT)/usr
 HPREFIX=$(abspath $(PREFIX))
 
+LIBDIR:=lib
+
 BIN=$(PREFIX)/bin
+SBIN=$(PREFIX)/sbin
+LIB=$(PREFIX)/$(LIBDIR)
 INC=$(PREFIX)/include
 PC=$(PREFIX)/lib/pkgconfig
 
@@ -49,8 +53,6 @@ UNZIP=unzip
 FAKEROOT=$(HPREFIX)/bin/fakeroot
 PYTHON=$(HPREFIX)/bin/python3
 PKGCONFIG=$(HPREFIX)/bin/pkg-config
-
-LIBDIR:=lib
 
 PKGCFG_PATH=$(HPREFIX)/$(LIBDIR)/pkgconfig
 
@@ -81,6 +83,9 @@ env/clean:
 
 # Reason for dependency in recorded in target definitions
 DEPS_LIB=\
+	zlib \
+	zstd \
+	lzo \
 	attr \
 	libcap \
 	util_linux \
@@ -101,7 +106,7 @@ DEPS_LIB=\
 # screen: for connecting to serial ports
 # git: for work with repos (optional)
 # ninja: needed by meson, which is needed to build glib
-#
+# mtd-utils: to have mkfs.jffs2 for creating FS images for NAND
 DEPS_TOOL=\
 	fakeroot \
 	dtc \
@@ -112,6 +117,7 @@ DEPS_TOOL=\
 	texinfo \
 	uboottools \
 	make \
+	mtd-utils \
 	ninja \
 	pkgconfig \
 	patchelf \
@@ -145,6 +151,26 @@ firstletter=$(strip $(foreach let,$(LETTERS),$(if $(filter $(let)%,$(1)),$(let))
 # Components: note that there are default values, see end of this list
 
 # Constraints on versions: support GCC >= 4.8
+
+# Required by mtd-utils
+VER_zlib=1.2.11
+URL_zlib=https://www.zlib.net
+TARBALL_zlib=zlib-$(VER_zlib).tar.xz
+DIR_zlib=zlib-$(VER_zlib)
+ART_zlib=$(PC)/zlib.pc
+
+# Required by mtd-utils
+VER_zstd=1.4.3
+URL_zstd=https://github.com/facebook/zstd/archive
+FNAME_zstd=v$(VER_zstd).tar.gz
+TARBALL_zstd=zstd-$(VER_zstd).tar.gz
+DIR_zstd=zstd-$(VER_zstd)
+ART_zstd=$(PC)/libzstd.pc
+
+# Required by mtd-utils
+VER_lzo=2.10
+URL_lzo=https://www.oberhumer.com/opensource/lzo/download
+ART_lzo=$(LIB)/liblzo2.so
 
 VER_attr=2.4.48
 URL_attr=http://download.savannah.nongnu.org/releases/attr
@@ -291,6 +317,11 @@ FNAME_ninja=v$(VER_ninja).tar.gz
 TARBALL_ninja=ninja-$(VER_ninja).tar.gz
 ART_ninja=$(BIN)/ninja
 
+VER_mtd-utils=2.1.1
+URL_mtd-utils=ftp://ftp.infradead.org/pub/mtd-utils
+TARBALL_mtd-utils=mtd-utils-$(VER_mtd-utils).tar.bz2
+ART_mtd-utils=$(SBIN)/mkfs.jffs2
+
 # Python packages
 
 # pypi distributes setuptools only in .zip package, so use GitHub
@@ -429,6 +460,8 @@ $(ART_pkgconfig):
 	$(MAKE) -C $(DIR) install
 
 # Most targets can reuse this standard autotools recipe
+$(ART_zlib) \
+$(ART_lzo) \
 $(ART_attr) \
 $(ART_fakeroot) \
 $(ART_libffi) \
@@ -443,10 +476,21 @@ $(ART_git) \
 $(ART_patchelf) \
 $(ART_rsync) \
 $(ART_re2c) \
+$(ART_mtd-utils) \
 : | $(ART_pkgconfig)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
+
+$(ART_zstd): $(ART_zlib)
+	$(SYSROOT_VARS) $(MAKE) -C $(DIR)
+	$(SYSROOT_VARS) $(MAKE) -C $(DIR) PREFIX=$(HPREFIX) install
+
+$(ART_lzo): private CONFIG_FLAGS+=--enable-shared
+
+$(ART_mtd-utils): $(ART_zlib) $(ART_zstd) $(ART_lzo) \
+				  $(ART_openssl) $(ART_util_linux)
+$(ART_mtd-utils): private CONFIG_FLAGS+=--disable-tests --disable-unit-tests
 
 $(ART_glib): | $(ART_pkgconfig) $(ART_python) $(ART_meson) $(ART_libffi) \
 	       $(ART_pcre) $(ART_util_linux)

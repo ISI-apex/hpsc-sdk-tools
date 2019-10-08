@@ -88,6 +88,15 @@ deps/clean:
 	rm -f $(BLD)/$(DEP_ENV_FILE)
 .PHONY: deps deps/clean
 
+define CENTOS_NUX_MIX_REPO
+name=Nux Misc
+baseurl=http://li.nux.ro/download/nux/misc/el6/x86_64/
+enabled=0
+gpgcheck=1
+gpgkey=http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
+endef
+
+deps/centos7: export CENTOS_NUX_MIX_REPO_SH=$(CENTOS_NUX_MIX_REPO_SH)
 deps/centos7: | $(BLD)/.
 	sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
 	sudo yum update
@@ -100,6 +109,8 @@ deps/centos7: | $(BLD)/.
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
 	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
 		pygobject2 pygboject2-devel
+	echo $$CENTOS_NUX_MIX_REPO_SH > /etc/yum.repos.d/nux-misc.repo
+	sudo yum --enablerepo=nux-misc install mtd-utils
 	echo > $(BLD)/$(DEP_ENV_FILE)
 .PHONY: deps/centos7
 
@@ -107,7 +118,7 @@ deps/arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen rsync python python2 \
 		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0 \
 		chrpath cpio diffstat rpcsvc-proto patchelf readline which \
-		openssl
+		openssl mtd-utils
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/$(DEP_ENV_FILE)
