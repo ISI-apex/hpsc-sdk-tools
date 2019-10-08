@@ -17,6 +17,13 @@ parser.add_argument('bin_file',
     help='Output file saved as a binary blob')
 args = parser.parse_args()
 
+def int_autobase(val):
+    if val.startswith("0x"):
+        return int(val, 16)
+    if re.match(r'0[0-9]+', val):
+        return int(val, 8)
+    return int(val, 10)
+
 class FieldValueError(Exception):
     pass
 
@@ -31,7 +38,7 @@ class Bitfield:
     def map(self, v):
         try:
             if self.vmap is None:
-                return v
+                return int_autobase(v)
             return self.vmap[v]
         except KeyError:
             raise FieldValueError("value '%s' not one of: {%s}" % \
@@ -73,7 +80,8 @@ def compile(cfg, schema):
             try:
                 v = cfg[s][k]
                 f_spec = sect_sch[k]
-                f = Bitfield(word=f_spec[0], bit=f_spec[1], width=f_spec[2], vmap=f_spec[3])
+                f = Bitfield(word=f_spec[0], bit=f_spec[1], width=f_spec[2],
+                             vmap=f_spec[3] if len(f_spec) >= 4 else None)
                 if f.word >= len(cfg_bin):
                     cfg_bin.extend([0x0] * (f.word + 1 - len(cfg_bin)))
                 cfg_bin[f.word] |= f.build(v)
