@@ -6,6 +6,7 @@ import os
 class MemMap:
     # Special values of destination/address field
     DEST_ELF = '@ELF'
+    DEST_NULL = '@NULL' # do not load
 
     class MemMapException(Exception):
         pass
@@ -29,6 +30,8 @@ class MemMap:
             m = tok[0]
             k = tok[1]
             addr = tok[2] # it's not always a number, may be special '@' directive
+            if addr == MemMap.DEST_NULL:
+                continue
             fname = os.path.expandvars(tok[3])
             yield line_num, m, k, addr, fname
 
