@@ -287,7 +287,8 @@ ART_re2c=$(BIN)/re2c
 # required by meson, which is required by glib
 VER_ninja=1.9.0
 URL_ninja=https://github.com/ninja-build/ninja/archive
-TARBALL_ninja=v$(VER_ninja).tar.gz
+FNAME_ninja=v$(VER_ninja).tar.gz
+TARBALL_ninja=ninja-$(VER_ninja).tar.gz
 ART_ninja=$(BIN)/ninja
 
 # Python packages
@@ -296,7 +297,8 @@ ART_ninja=$(BIN)/ninja
 VER_setuptools=41.2.0
 VER_POST_setuptools=post20191001
 URL_setuptools=https://github.com/pypa/setuptools/archive
-TARBALL_setuptools=v$(VER_setuptools).tar.gz
+FNAME_setuptools=v$(VER_setuptools).tar.gz
+TARBALL_setuptools=setuptools-$(VER_setuptools).tar.gz
 ART_VER_setuptools=$(VER_setuptools).$(VER_POST_setuptools)
 
 VER_setuptools_scm=3.3.3
