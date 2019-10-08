@@ -13,6 +13,12 @@ parser.add_argument('--output', '-o',
     help='Output filename with the merged data in INI format (stdout if none)')
 args = parser.parse_args()
 
+# Support creating blank files when no input is given
+if len(args.input) == 0:
+    outfp = open(args.output, "w")
+    outfp.close()
+    sys.exit(0)
+
 base_file, overlay_files = args.input[0], args.input[1:]
 
 cfg = configparser.ConfigParser()
@@ -54,6 +60,9 @@ if args.output:
     outfp = open(args.output, "w")
 else:
     outfp = sys.stdout
+
+if len(args.input) == 0:
+    sys.exit(0)
 
 try:
     cfg.write(outfp)
