@@ -106,7 +106,8 @@ deps/centos7: | $(BLD)/.
 deps/arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen rsync python python2 \
 		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0 \
-		chrpath cpio diffstat rpcsvc-proto patchelf readline which
+		chrpath cpio diffstat rpcsvc-proto patchelf readline which \
+		openssl
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/$(DEP_ENV_FILE)
