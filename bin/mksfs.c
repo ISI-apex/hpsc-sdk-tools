@@ -21,6 +21,8 @@
 
 #define ALIGNMENT_BITS 8 /* align files to 256-byte boundary, for DMA tx */
 #define MAX_PATH_LEN 255
+#define MAX_SIZE_LEN 16
+#define MAX_IDENT_LEN 255
 #define MAX_IEC_SIZE_LEN  15
 #define FILE_NAME_LENGTH 200
 
@@ -95,20 +97,33 @@ static int iectoull(uint64_t *n, const char *str)
     return 0;
 }
 
-static uint32_t size32_from_str(const char *str)
+static int size32_from_str(uint32_t *size, const char *str)
 {
     uint64_t val64;
+    int rc;
     if (str[0] == '0' && str[1] == 'x')  {
-        return strtoul(str, NULL, 16);
+        *size = strtoul(str, NULL, 16);
+        return 0;
     }
     /* decimal, optionally suffixed */
-    if (iectoull(&val64, str))
-        exit(1);
+    rc = iectoull(&val64, str);
+    if (rc)
+        return rc;
     if (val64 >> 32) {
         fprintf(stderr, "error: size too large (32-bit max): %s", str);
-        exit(1);
+        return 1;
     }
-    return val64;
+    *size = val64;
+    return 0;
+}
+static uint32_t size32_from_str_or_exit(const char *str)
+{
+    uint32_t size;
+    int rc;
+    rc = size32_from_str(&size, str);
+    if (rc)
+        exit(1);
+    return size;
 }
 
 static uint64_t addr64_from_str(const char *str)
@@ -127,6 +142,86 @@ static uint32_t addr32_from_str(const char *str)
         exit(1);
     }
     return val64;
+}
+
+static int ini_read_opt(char *val, size_t size, FILE *fin,
+                        const char *sect, const char *opt)
+{
+    char *line = NULL;
+    size_t line_size = 0;
+    ssize_t line_len;
+    unsigned line_num = 0;
+    char curr_sect[MAX_IDENT_LEN + 1] = {0}; /* null byte */
+    char pattern[MAX_IDENT_LEN + 8 + 1]; /* 'IDENT = %Ns' and null byte */
+    int rc = 1;
+
+    if (fseek(fin, 0, SEEK_SET) < 0) {
+        perror("failed to seek in ini config file");
+        goto exit;
+    }
+
+    while ((line_len = getline(&line, &line_size, fin)) != -1) {
+        ++line_num;
+        /* skip comments and blank lines */
+        if (line_len == 0 || line[0] == '#' ||
+            ((line_len == 1 || (line_len == 2 && line[line_len - 2] == '\r') &&
+                  line[line_len - 1] == '\n'))) {
+            free(line);
+            line = NULL;
+            continue;
+        }
+
+        /* strip trailing whitespace (newlines) */
+        if (line[line_len - 1] == '\n')
+            line[line_len-- - 1] = '\0';
+        if (line[line_len - 2] == '\r')
+            line[line_len-- - 2] = '\0';
+
+        if (line[0] == '[' && line[line_len - 1] == ']') {
+            if (line_len - 2 >= sizeof(curr_sect)) {
+                fprintf(stderr, "mksfs: error: config file line %u: "
+                        "identifier too long\n", line_num);
+                goto exit;
+            }
+            strncpy(curr_sect, line + 1, line_len - 2);
+            curr_sect[line_len - 2] = '\0';
+            free(line);
+            line = NULL;
+            continue;
+        }
+        if (strcmp(curr_sect, sect)) {
+            free(line);
+            line = NULL;
+            continue;
+        }
+        if (snprintf(pattern, sizeof(pattern), "%s = %%%us", opt, size - 1)
+                >= sizeof(pattern)) {
+            fprintf(stderr, "internal error: "
+                    "failed to construct pattern\r\n");
+            goto exit;
+        }
+        if (sscanf(line, pattern, val) == 1) {
+            rc = 0;
+            goto exit;
+        }
+        free(line);
+        line = NULL;
+    }
+exit:
+    if (line)
+        free(line);
+    return rc;
+}
+
+static int ini_read_opt_as_size(uint32_t *size, FILE *fin,
+                                const char *sect, const char *opt)
+{
+    int rc;
+    char size_str[MAX_SIZE_LEN + 1];
+    rc = ini_read_opt(size_str, sizeof(size_str), fin, sect, opt);
+    if (rc)
+        return rc;
+    return size32_from_str(size, size_str);
 }
 
 void file_show (char * fname)
@@ -389,9 +484,32 @@ void ram_write (unsigned char * buffer, uint32_t count, uint64_t address) {
     }
 }
 
+static uint32_t read_size_from_ini_file_or_exit(const char *fname)
+{
+    uint32_t img_size;
+    int rc;
+
+    FILE * fin = fopen(fname, "r");
+    if (!fin) {
+        fprintf(stderr, "error: failed to open config file '%s': %s\n",
+                fname, strerror(errno));
+        exit(1);
+    }
+
+    rc = ini_read_opt_as_size(&img_size, fin, "DEFAULT", "size");
+    if (rc) {
+        fclose(fin);
+        fprintf(stderr, "error: failed to get image size from config file\n");
+        exit(1);
+    }
+
+    fclose(fin);
+    return img_size;
+}
+
 int main (int argc, char ** argv)
 {
-    char *fname_sram, *fname_map, *fname_add, *fname_id, *img_size_str;
+    char *fname_sram, *fname_map, *fname_add, *fname_id, *fname_ini;
     uint64_t load_addr64;
     uint32_t img_size, entry_offset;
     int rc;
@@ -404,7 +522,7 @@ int main (int argc, char ** argv)
         case 'c': /* create an empty image */
             if (argc != 4) { usage(argv[0]); return 1; }
             fname_sram = argv[2];
-            img_size = size32_from_str(argv[3]);
+            img_size = size32_from_str_or_exit(argv[3]);
             return sram_file_create(fname_sram, img_size);
         case 'a': /* add a file to the image */
             if (argc != 7) { usage(argv[0]); return 1; }
@@ -415,10 +533,10 @@ int main (int argc, char ** argv)
             load_addr64 = addr64_from_str(argv[5]);
             return file_add(fname_sram, fname_add, fname_id,
                     load_addr64, entry_offset);
-        case 'm': /* create file system image from map specification file */
+        case 'm': /* create file system image from config file and map file */
             if (argc != 5) { usage(argv[0]); return 1; }
                 fname_sram = argv[2];
-                img_size = size32_from_str(argv[3]);
+                img_size = read_size_from_ini_file_or_exit(argv[3]);
                 fname_map = argv[4];
                 if ((rc = sram_file_create_from_map(fname_sram, img_size, fname_map,
                                                     /* entry offset */ 0x0))) {
