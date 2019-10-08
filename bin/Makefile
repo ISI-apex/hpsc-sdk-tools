@@ -1,15 +1,26 @@
+BINS =\
+    qemu-nand-creator \
+    mksfs \
+    mkbl0cfg \
 
-all: qemu-nand-creator sram-image-utils
+all: $(BINS)
 
 .PHONY: all
 
-CFLAGS += -O2 -g
+CFLAGS += -O0 -g
+
+LDFLAGS_ssl = -lssl -lcrypto
 
 qemu-nand-creator: qemu-nand-creator.c
-	$(CC) $(CFLAGS) -o $@ $^
 
-sram-image-utils: sram-image-utils.c ecc.c
-	$(CC) $(CFLAGS) $(INC) $(LIB) -o $@ $^ -lssl -lcrypto
+mksfs: mksfs.c ecc.c
+mksfs: LDFLAGS+=$(LDFLAGS_ssl)
+
+mkbl0cfg: mkbl0cfg.c ecc.c
+mkbl0cfg: LDFLAGS+=$(LDFLAGS_ssl)
+
+$(BINS):
+	$(CC) $(CFLAGS) $(INC) $(LIB) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -rf *.o qemu-nand-creator sram-image-utils
+	rm -rf *.o $(BINS)
