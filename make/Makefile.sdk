@@ -96,7 +96,7 @@ deps/centos7: | $(BLD)/.
         libfdt-devel pixman-devel zlib-devel uboot-tools bc ncurses-devel \
         python-configparser python36u python36u-libs python36u-devel \
         python36u-pip pax python-sphinx patchelf readline-devel \
-		guile guile-devel
+		guile guile-devel which
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
 	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
 		pygobject2 pygboject2-devel
@@ -106,7 +106,7 @@ deps/centos7: | $(BLD)/.
 deps/arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen rsync python python2 \
 		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0 \
-		chrpath cpio diffstat rpcsvc-proto patchelf readline
+		chrpath cpio diffstat rpcsvc-proto patchelf readline which
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/$(DEP_ENV_FILE)
