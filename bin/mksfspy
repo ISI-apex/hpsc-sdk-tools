@@ -28,4 +28,8 @@ command = ' '.join([args.tool, 'm', args.output, str(size), args.map_file])
 print("%s: executing: %s" % (sys.argv[0], command))
 wait_rc = os.system(command)
 print("%s: wait rc %u" % (sys.argv[0], wait_rc))
-sys.exit(wait_rc >> 8)
+if wait_rc >> 8:
+    rc = wait_rc >> 8
+else:
+    rc = wait_rc
+sys.exit(rc)
