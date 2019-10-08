@@ -82,8 +82,10 @@ env/clean:
 # the same name as long as they are in different categories.
 
 # Reason for dependency in recorded in target definitions
-DEPS_LIB=\
+DEPS_CORE_LIB=\
 	zlib \
+
+DEPS_LIB=\
 	zstd \
 	lzo \
 	attr \
@@ -107,6 +109,10 @@ DEPS_LIB=\
 # git: for work with repos (optional)
 # ninja: needed by meson, which is needed to build glib
 # mtd-utils: to have mkfs.jffs2 for creating FS images for NAND
+
+DEPS_CORE_TOOL=\
+	pkgconfig \
+
 DEPS_TOOL=\
 	fakeroot \
 	dtc \
@@ -119,7 +125,6 @@ DEPS_TOOL=\
 	make \
 	mtd-utils \
 	ninja \
-	pkgconfig \
 	patchelf \
 	rsync \
 	re2c \
@@ -140,7 +145,7 @@ DEPS_PY=\
 	pprint \
 	meson \
 
-DEPS_NATIVE=$(DEPS_LIB) $(DEPS_TOOL)
+DEPS_NATIVE=$(DEPS_CORE_LIB) $(DEPS_LIB) $(DEPS_CORE_TOOL) $(DEPS_TOOL)
 DEPS=$(DEPS_NATIVE) $(DEPS_PY)
 
 # Extract first character from string (identifier), for Python URLs
@@ -353,8 +358,8 @@ $(foreach p,$(DEPS_PY),\
 	$(eval ART_VER_$(p)?=$(VER_$(p)))\
 	$(eval ART_$(p)?=$(PYTHON_SITE_REL)/$(p)-$(ART_VER_$(p))-py$(VER_MAJMIN_python).egg))
 
-libs: $(DEPS_LIB)
-tools: $(DEPS_TOOL)
+libs: $(DEPS_CORE_LIB) $(DEPS_LIB)
+tools: $(DEPS_CORE_TOOL) $(DEPS_TOOL)
 py: $(DEPS_PY)
 py/clean: $(foreach d,$(DEPS_PY),$(d)/clean)
 
@@ -458,6 +463,13 @@ CONFIG_FLAGS=\
 $(ART_pkgconfig):
 	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR) install
+
+# Many components depend on zlib, so add a blanket dependency -- this is a
+# hack, the right thing is add the dep to individual components that need it.
+# The dep is important, because otherwise components will depend on either host
+# core lib (like zlib) or sysroot one depending on the time they were built.
+NON_CORE_ARTS=$(foreach c,$(DEPS_LIB) $(DEPS_TOOL),$(ART_$(c)))
+$(NON_CORE_ARTS): $(foreach c,$(DEPS_CORE_LIB),$(ART_$(c)))
 
 # Most targets can reuse this standard autotools recipe
 $(ART_zlib) \
