@@ -1,28 +1,8 @@
 # Shared utilities for working with config files in INI format
 
 import configparser
-import re
 
-def int_autobase(val):
-    if val.startswith("0x"):
-        return int(val, 16)
-    if re.match(r'0[0-9]+', val):
-        return int(val, 8)
-    return int(val, 10)
-
-def size_from_iec_str(s):
-    m = re.match(r'((?:0x)?(?:[0-9]+))([KMG]?)', s)
-    if not m:
-        raise IniCfgException("size not in IEC format: '%s'" % s)
-    size = int_autobase(m.group(1))
-    suffix = m.group(2)
-    if suffix == 'G':
-        size <<= 30
-    if suffix == 'M':
-        size <<= 20
-    if suffix == 'K':
-        size <<= 10
-    return size
+from numparse import int_autobase, size_from_iec_str
 
 class IniCfg:
     """Helper for working with configuration in INI format"""
