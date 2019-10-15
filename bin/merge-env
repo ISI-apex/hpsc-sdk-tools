@@ -55,6 +55,6 @@ try:
     for k in d:
         outfp.write(k + '=' + d[k] + "\n")
 except: # when used from makefiles, important to not create output on failure
-    if args.output:
+    if args.output and os.path.exists(args.output):
         os.remove(args.output)
     raise

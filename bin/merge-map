@@ -71,6 +71,6 @@ try:
             write_fields(outfp, m, k, d[m][k]["addr"], d[m][k]["fname"],
                          d[m][k]["slice_offset"], d[m][k]["slice_length"])
 except: # when used from makefiles, important to not create output on failure
-    if args.output:
+    if args.output and os.path.exists(args.output):
         os.remove(args.output)
     raise

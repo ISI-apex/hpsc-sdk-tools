@@ -43,5 +43,6 @@ try:
     fout.close()
 
 except: # when used from makefiles, important to not create output on failure
-    os.remove(args.output)
+    if os.path.exists(args.output):
+        os.remove(args.output)
     raise

@@ -67,6 +67,6 @@ if len(args.input) == 0:
 try:
     cfg.write(outfp)
 except: # when used from makefiles, important to not create output on failure
-    if args.output:
+    if args.output and os.path.exists(args.output):
         os.remove(args.output)
     raise
