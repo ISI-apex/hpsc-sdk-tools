@@ -74,6 +74,9 @@ try:
 
     for line, m, k, addr, fname in MemMap.iter(fmap):
         try:
+            if bool(cfg.get_prop(m, 'skip', False)):
+                continue
+
             qemu_backend, = cfg.get_props(m, 'qemu_backend')
 
             # RAM are easy because composite images are passed through to Qemu by
@@ -120,6 +123,9 @@ try:
     # same time updating the image upon rebuild.
     for m in cfg.sections():
         try:
+            if bool(cfg.get_prop(m, 'skip', False)):
+                continue
+
             backend, index = cfg.get_props(m, 'qemu_backend', 'qemu_index')
             if backend == 'drive' and index != '':
                 image_file = composite_image_name(cfg, m)
