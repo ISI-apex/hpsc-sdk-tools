@@ -104,7 +104,7 @@ try:
 
     zebu_map = OrderedDict()
 
-    for line, m, k, addr, fname in MemMap.iter(fmap):
+    for line, m, k, addr, blob in MemMap.iter(fmap):
         try:
             if bool(cfg.get_prop(m, 'skip', False)):
                 continue
@@ -121,7 +121,7 @@ try:
                     artifact_relations[bld_image] = []
                 else:
                     is_component = True
-                artifact_relations[bld_image].append(fname)
+                artifact_relations[bld_image].append(blob.fname)
 
             if is_component:
                 continue

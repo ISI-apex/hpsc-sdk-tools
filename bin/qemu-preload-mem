@@ -72,7 +72,7 @@ try:
     privatized_artifacts = {} # copied from bld to run for each run (if stale)
     prereqs = {} # unique components that are not joined into an intermediate image
 
-    for line, m, k, addr, fname in MemMap.iter(fmap):
+    for line, m, k, addr, blob in MemMap.iter(fmap):
         try:
             if bool(cfg.get_prop(m, 'skip', False)):
                 continue
@@ -83,7 +83,7 @@ try:
             # component, without pre-assembling into an intermediate image.
             if qemu_backend == "ram":
                 cpu_num, = cfg.get_props(m, 'qemu_cpu_num')
-                loader_args = ["loader", "file=%s" % abspath(fname),
+                loader_args = ["loader", "file=%s" % abspath(blob.fname),
                                "cpu-num=%u" % int(cpu_num)]
                 if addr == MemMap.DEST_ELF: # load file according to elf header
                     pass
@@ -92,7 +92,7 @@ try:
                     addr = int(base, 16) + int(addr, 16)
                     loader_args += ["force-raw", "addr=0x%x" % addr]
                 print('-device', ",".join(loader_args), file=fout)
-                prereqs[fname] = True
+                prereqs[blob.fname] = True
 
             elif qemu_backend == "drive":
                 image_file = composite_image_name(cfg, m)
@@ -102,7 +102,7 @@ try:
                     composite_artifacts[bld_image] = []
                     # Assume the image will be created in the run directory
                     issue_drive_arg(fout, cfg, m, image_file)
-                composite_artifacts[bld_image].append(fname)
+                composite_artifacts[bld_image].append(blob.fname)
                 load_file = image_file
 
             else:

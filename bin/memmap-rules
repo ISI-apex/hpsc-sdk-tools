@@ -29,10 +29,10 @@ try:
     fmap = open(args.map_file, "r")
 
     artifacts = []
-    for line, m, k, addr, fname in MemMap.iter(fmap):
+    for line, m, k, addr, blob in MemMap.iter(fmap):
         if args.memory is not None and m != args.memory:
             continue
-        artifacts.append(fname)
+        artifacts.append(blob.fname)
 
     if args.image:
         MemMap.Rules.write_relations(fout, {args.image: artifacts})

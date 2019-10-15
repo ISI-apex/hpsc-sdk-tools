@@ -35,21 +35,28 @@ d = OrderedDict()
 origin = {}
 for f in args.input:
     fin = open(f, "r")
-    for line, m, k, addr, fname in MemMap.iter(open(f, "r")):
-        if addr == '*' or fname == '*':
+    for line, m, k, addr, blob in MemMap.iter(open(f, "r")):
+        if addr == '*' or blob.fname == '*' or \
+            blob.slice_offset == '*' or blob.slice_length == '*':
             if k not in d[m]:
                 raise Exception(("%s:%u: " + \
                     "mem '%s' key '%s' has wildcard but is not in parent") % \
-                    (f, line_num, m, k))
+                    (f, line, m, k))
             if addr == '*':
                 addr = d[m][k]["addr"]
-            if fname == '*':
-                fname = d[m][k]["fname"]
+            if blob.fname == '*':
+                blob.fname = d[m][k]["fname"]
+            if blob.slice_offset == '*':
+                blob.slice_offset = d[m][k]["slice_offset"]
+            if blob.slice_length == '*':
+                blob.slice_length = d[m][k]["slice_length"]
         if m not in d:
             d[m] = OrderedDict()
             origin[m] = {}
         origin[m][k] = f
-        d[m][k] = {"addr": addr, "fname": fname}
+        d[m][k] = {"addr": addr, "fname": blob.fname,
+                   "slice_offset": blob.slice_offset,
+                   "slice_length": blob.slice_length }
     fin.close()
 
 if args.output:
@@ -61,7 +68,8 @@ try:
     for m in d:
         for k in d[m]:
             print('# SOURCE:', origin[m][k], file=outfp)
-            write_fields(outfp, m, k, d[m][k]["addr"], d[m][k]["fname"])
+            write_fields(outfp, m, k, d[m][k]["addr"], d[m][k]["fname"],
+                         d[m][k]["slice_offset"], d[m][k]["slice_length"])
 except: # when used from makefiles, important to not create output on failure
     if args.output:
         os.remove(args.output)
