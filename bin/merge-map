@@ -43,13 +43,14 @@ for f in args.input:
         addr = tok[2]
         fname = tok[3]
         if addr == '*' or fname == '*':
-            if k not in d:
-                raise Exception(("%s:%u: key '%s' has wildcard field " + \
-                                "but is not in parent") % (f, line_num, k))
+            if k not in d[m]:
+                raise Exception(("%s:%u: " + \
+                    "mem '%s' key '%s' has wildcard but is not in parent") % \
+                    (f, line_num, m, k))
             if addr == '*':
-                addr = d[k]["addr"]
+                addr = d[m][k]["addr"]
             if fname == '*':
-                fname = d[k]["fname"]
+                fname = d[m][k]["fname"]
         if m not in d:
             d[m] = OrderedDict()
             origin[m] = {}
