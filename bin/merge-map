@@ -6,6 +6,8 @@ import re
 import argparse
 from collections import OrderedDict
 
+from memmap import MemMap
+
 parser = argparse.ArgumentParser(
     description="Merge memory maps, output to stdout")
 parser.add_argument('input', nargs='*',
@@ -18,30 +20,22 @@ def write_fields(f, *fields):
     TAB_WIDTH = 8 # spaces
     MIN_FIELD_WIDTH = 4 # tabs
     for e in fields:
-        field_width = max(len(e) // TAB_WIDTH + 1, MIN_FIELD_WIDTH)
-        tabs = field_width - len(e) // TAB_WIDTH
+        try:
+            field_val = "0x%x" % e
+        except:
+            field_val = str(e) if e is not None else '-'
+        field_width = max(len(field_val) // TAB_WIDTH + 1, MIN_FIELD_WIDTH)
+        tabs = field_width - len(field_val) // TAB_WIDTH
         tabs = tabs if tabs >= 0 else 0
         padding = "\t" * tabs
-        f.write(e + padding)
+        f.write(field_val + padding)
     f.write("\n")
 
 d = OrderedDict()
 origin = {}
 for f in args.input:
     fin = open(f, "r")
-    line_num = 0
-    for line in fin:
-        line_num += 1
-        line = re.sub(r'\s*#.*', '', line.strip())
-        if len(line) == 0:
-            continue
-        tok = line.split()
-        if len(tok) < 4:
-            raise Exception("syntax error on line: %u" % line_num)
-        m = tok[0] # memory ID
-        k = tok[1]
-        addr = tok[2]
-        fname = tok[3]
+    for line, m, k, addr, fname in MemMap.iter(open(f, "r")):
         if addr == '*' or fname == '*':
             if k not in d[m]:
                 raise Exception(("%s:%u: " + \
