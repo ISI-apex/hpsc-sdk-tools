@@ -105,7 +105,7 @@ deps/centos7: | $(BLD)/.
         libfdt-devel pixman-devel zlib-devel uboot-tools bc ncurses-devel \
         python-configparser python36u python36u-libs python36u-devel \
         python36u-pip pax python-sphinx patchelf readline-devel \
-		guile guile-devel which fakeroot
+		guile guile-devel which fakeroot openssl openssl-dev
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
 	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
 		pygobject2 pygboject2-devel
