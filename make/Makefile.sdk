@@ -89,6 +89,7 @@ deps/clean:
 .PHONY: deps deps/clean
 
 define CENTOS_NUX_MIX_REPO
+[nux-misc]
 name=Nux Misc
 baseurl=http://li.nux.ro/download/nux/misc/el6/x86_64/
 enabled=0
@@ -96,21 +97,23 @@ gpgcheck=1
 gpgkey=http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
 endef
 
-deps/centos7: export CENTOS_NUX_MIX_REPO_SH=$(CENTOS_NUX_MIX_REPO_SH)
+deps/centos7: export CENTOS_NUX_MIX_REPO_SH=$(CENTOS_NUX_MIX_REPO)
 deps/centos7: | $(BLD)/.
-	sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
-	sudo yum update
-	sudo yum group install "Development Tools"
-	sudo yum install java git gtk3 chrpath texinfo screen rsync glib2-devel \
-        libfdt-devel pixman-devel zlib-devel uboot-tools bc ncurses-devel \
-        python-configparser python36u python36u-libs python36u-devel \
-        python36u-pip pax python-sphinx patchelf readline-devel \
-		guile guile-devel which fakeroot openssl openssl-dev wget
+	if ! yum list installed ius-release; then \
+		sudo yum -y install https://centos7.iuscommunity.org/ius-release.rpm; \
+	fi
+	sudo yum -y update
+	sudo yum -y group install "Development Tools"
+	sudo yum -y install java git gtk3 chrpath texinfo screen rsync glib2-devel \
+		libfdt-devel pixman-devel zlib-devel uboot-tools bc ncurses-devel \
+		python-configparser python36u python36u-libs python36u-devel \
+		python36u-pip pax python-sphinx patchelf readline-devel \
+		guile guile-devel which fakeroot openssl openssl-devel wget
 	sudo ln -sf /usr/bin/python3.6 /usr/bin/python3
-	sudo yum install cairo-devel cairo-gobject-devel gobject-introspection-devel \
+	sudo yum -y install cairo-devel cairo-gobject-devel gobject-introspection-devel \
 		pygobject2 pygboject2-devel
-	echo $$CENTOS_NUX_MIX_REPO_SH > /etc/yum.repos.d/nux-misc.repo
-	sudo yum --enablerepo=nux-misc install mtd-utils
+	sudo sh -c "echo \"$$CENTOS_NUX_MIX_REPO_SH\" > /etc/yum.repos.d/nux-misc.repo"
+	sudo yum -y --enablerepo=nux-misc install mtd-utils
 	echo > $(BLD)/$(DEP_ENV_FILE)
 .PHONY: deps/centos7
 
