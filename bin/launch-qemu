@@ -66,6 +66,17 @@ function nand_blocks() {
     echo $(( size / (pages_per_block * page_size) ))
 }
 
+function set_default()
+{
+   local name="$1"
+   local val="$2"
+   # Check for set/unset not emptiness to let empty carry meaning
+   if [ ! "${!name+_}" ]
+   then
+      declare -g "$name=$val"
+   fi
+}
+
 run() {
     echo "$@"
     "$@"
