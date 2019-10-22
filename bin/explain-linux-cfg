@@ -1,0 +1,108 @@
+#!/usr/bin/python
+
+import sys
+import re
+import argparse
+from functools import reduce
+
+parser = argparse.ArgumentParser(
+    description="""Simplify 'Selected by' expression from Linux menuconfig " +
+        "to find out why a config flag is set (in human-readable terms).
+        """)
+parser.add_argument('--input', '-i',
+    help="Input file with 'Selected by' expression pasted from menuconfig")
+parser.add_argument('flags', nargs='*', metavar="flag=y|n",
+    help="Key-value pairs for flags without a value in the expression")
+args = parser.parse_args()
+
+# Usage example:
+#
+#    $ make menuconfig
+#     [ press 'h' on an option ]
+#     [ copy the Selected by lines, garbage characters will be ignored ]
+#    $ explain-linux-cfg  << EOF
+#    >   │   Selected by: NET_DSA [=n] && NET [=y] && ....
+#    > ...
+#    > EOF
+#
+#    Simplified expression (only parts that eval to True are kept):
+#    STMMAC_ETH && NETDEVICES && ETHERNET && NET_VENDOR_STMICRO ...
+#
+#    Flags assumed to be False:
+#    X86 ARC ...
+
+flags = {}
+for pair in args.flags:
+    if pair.count('=') != 1:
+        print("ERROR: invalid key-value pair: %s" % pair, file=sys.stderr)
+        sys.exit(1)
+    f, v = pair.split('=')
+    f = f.strip()
+    v = v.lower().strip()
+    flags[f] = True if v == 'y' else False
+
+if args.input is not None:
+    fin = open(args.input, "r")
+else:
+    fin = sys.stdin
+
+expr = re.sub(r'[^\nA-Za-z0-9_&|=\]\[)(]', " ", fin.read())
+expr = re.sub(r'^\s*Selected by', "", expr) # allow, for convenience
+
+# Extract and strip varaible values
+for m in re.finditer(r'([A-Za-z0-9_]+) \[=([yn])\]', expr):
+    flags[m.group(1)] = True if m.group(2) == 'y' else False
+expr = re.sub(r'([A-Za-z0-9_]+) \[=[yn]\]', r'\1', expr)
+
+# Some flags don't have a value in the expression, assume False,
+# but allow user to override via the flags CLI argument
+assumed_flags = []
+
+simpl_sub_exprs = []
+
+def evale(e):
+    m = re.search(r'(\(([^)(]+)\))', e)
+    if m:
+        sub_e = m.group(2)
+        sub_r, simpl_sub_e = evale(sub_e)
+
+        simpl_id = len(simpl_sub_exprs)
+        simpl_sub_exprs.append(simpl_sub_e)
+
+        head, tail = e[:m.start(1)], e[m.end(1):]
+        r, simpl_e = evale(head + ("%s:%u" % (str(sub_r), simpl_id)) + tail)
+        return r, simpl_e
+    elif e.find('||') >= 0:
+        ops = e.split('||')
+        vals, simpl_exprs = zip(*map(evale, ops))
+        return reduce(lambda x,y: x or y, vals), \
+               ' || '.join([o.strip() for o, v in zip(simpl_exprs, vals) if v])
+    elif e.find('&&') >= 0:
+        ops = e.split('&&')
+        vals, simpl_exprs = zip(*map(evale, ops))
+        return reduce(lambda x,y: x and y, vals), \
+               ' && '.join([o.strip() for o, v in zip(simpl_exprs, vals) if v])
+    elif e.strip().startswith("False"):
+        # don't care about the simplified subexpression
+        return False, ""
+    elif e.strip().startswith("True"):
+        assert e.count(':') == 1
+        _, simpl_id = e.split(':')
+        return True, simpl_sub_exprs[int(simpl_id)]
+    else:
+        var = e.strip()
+        if var in flags:
+            val = flags[var]
+        else:
+            val = False
+            assumed_flags.append(var)
+        return val, e.strip()
+
+r, r_e = evale(expr)
+print("Simplified expression (only parts that eval to True are kept):")
+print(r_e, "=", r)
+print()
+print("Flags assumed to be False:")
+for f in assumed_flags:
+    print(f, end=' ')
+print()
