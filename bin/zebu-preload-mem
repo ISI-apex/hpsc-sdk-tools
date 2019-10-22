@@ -63,10 +63,10 @@ def zebu_load_path(image_path, fmt):
     return load_path
 
 def is_sliced(cfg, m):
-    return bool(cfg.get_prop(m, 'sliced', False))
+    return cfg.get_prop_as_bool(m, 'sliced', False)
 
 def get_slice_parent(cfg, m):
-    return cfg.get_prop(m, 'slice_of', None)
+    return cfg.get_prop_optional(m, 'slice_of')
 
 def get_slices(cfg, m):
     """Return slices of a parent memory"""
@@ -82,13 +82,13 @@ def get_slices(cfg, m):
 def check_initialize(cfg, m):
     """Lookup 'initialize' flag on either the slice or parent"""
     initialize_prop = 'initialize'
-    initialize = bool(cfg.get_prop(m, initialize_prop, False))
+    initialize = cfg.get_prop_as_bool(m, initialize_prop, False)
     if initialize:
         return True
     # else check parent
     parent_mem = get_slice_parent(cfg, m)
     if parent_mem is not None:
-        return bool(cfg.get_prop(parent_mem, initialize_prop, False))
+        return cfg.get_prop_as_bool(parent_mem, initialize_prop, False)
     return False
 
 fout = open(args.output, "w")
@@ -106,7 +106,7 @@ try:
 
     for line, m, k, addr, blob in MemMap.iter(fmap):
         try:
-            if bool(cfg.get_prop(m, 'skip', False)):
+            if cfg.get_prop_as_bool(m, 'skip', False):
                 continue
 
             if addr == MemMap.DEST_ELF: # load file according to elf header
@@ -141,7 +141,7 @@ try:
 
             # Striped memories, we load the same image into all
             # Could also build striped images, but there's no point.
-            if bool(cfg.get_prop(m, 'striped', False)):
+            if cfg.get_prop_as_bool(m, 'striped', False):
                 banks, = cfg.get_props(m, 'banks')
                 banks = int(banks)
                 zebu_ids = []
@@ -162,11 +162,11 @@ try:
     # Memories marked initialize need to be preloaded even if the memory
     # map does not specify any content for them.
     for m in cfg.sections():
-        if bool(cfg.get_prop(m, 'skip', False)):
+        if cfg.get_prop_as_bool(m, 'skip', False):
             continue
 
         if m not in composite_images:
-            sliced = bool(cfg.get_prop(m, 'sliced', False))
+            sliced = cfg.get_prop_as_bool(m, 'sliced', False)
             if sliced:
                 continue # will do stuff for the children
             if check_initialize(cfg, m):

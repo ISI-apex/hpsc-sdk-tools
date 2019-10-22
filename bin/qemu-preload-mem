@@ -74,7 +74,7 @@ try:
 
     for line, m, k, addr, blob in MemMap.iter(fmap):
         try:
-            if bool(cfg.get_prop(m, 'skip', False)):
+            if cfg.get_prop_as_bool(m, 'skip', False):
                 continue
 
             qemu_backend, = cfg.get_props(m, 'qemu_backend')
@@ -123,7 +123,7 @@ try:
     # same time updating the image upon rebuild.
     for m in cfg.sections():
         try:
-            if bool(cfg.get_prop(m, 'skip', False)):
+            if cfg.get_prop_as_bool(m, 'skip', False):
                 continue
 
             backend, index = cfg.get_props(m, 'qemu_backend', 'qemu_index')

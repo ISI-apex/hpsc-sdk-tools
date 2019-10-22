@@ -62,31 +62,44 @@ class IniCfg:
                 return False
         return True
 
-    def get_prop(self, sect, prop, fallback):
+    def get_prop_optional(self, sect, prop):
         scfg = self.get_collapsed(sect)
         if prop in scfg:
             return scfg[prop]
-        return fallback
+        return None
 
-    def get_prop_required(self, sect, prop):
-        scfg = self.get_collapsed(sect)
-        if prop in scfg:
-            return scfg[prop]
-        raise IniCfg.CfgException(
-            "ERROR: section %s has no property %s'" % (sect, prop))
+    def get_prop(self, sect, prop, fallback=None):
+        str_val = self.get_prop_optional(sect, prop)
+        if str_val is not None:
+            return str_val
+        elif fallback is not None:
+            return fallback
+        else:
+            raise IniCfg.CfgException(
+                "ERROR: section %s has no property %s" % (sect, prop))
 
-    def get_prop_as(self, sect, prop, ctor):
-        val = self.get_prop_required(sect, prop)
+    def get_prop_as(self, sect, prop, ctor, fallback=None):
+        val = self.get_prop(sect, prop, fallback)
         return ctor(val)
 
-    def get_prop_as_int(self, sect, prop):
-        return self.get_prop_as(sect, prop, int_autobase)
+    def get_prop_as_int(self, sect, prop, fallback=None):
+        return self.get_prop_as(sect, prop, int_autobase, fallback)
 
-    def get_prop_as_bool(self, sect, prop):
-        return self.get_prop_as(sect, prop, bool)
+    def get_prop_as_bool(self, sect, prop, fallback=None):
+        return self.get_prop_as(sect, prop, IniCfg.boolean, fallback)
 
-    def get_prop_as_size(self, sect, prop):
-        return self.get_prop_as(sect, prop, size_from_iec_str)
+    def get_prop_as_size(self, sect, prop, fallback=None):
+        return self.get_prop_as(sect, prop, size_from_iec_str, fallback)
 
     def sections(self):
         return self.base_sections
+
+    def boolean(s):
+        if type(s) is bool:
+            return s
+        s = s.strip().lower()
+        if s == 'true' or s == 'yes' or s == '1':
+            return True
+        if s == 'false' or s == 'no' or s == '0':
+            return False
+        raise IniCfg.CfgException("invalid boolean value: %s" % s);

@@ -35,7 +35,7 @@ d = OrderedDict()
 origin = {}
 for f in args.input:
     fin = open(f, "r")
-    for line, m, k, addr, blob in MemMap.iter(open(f, "r")):
+    for line, m, k, addr, blob in MemMap.iter(fin, skip_undefined=False):
         if addr == '*' or blob.fname == '*' or \
             blob.slice_offset == '*' or blob.slice_length == '*':
             if k not in d[m]:
