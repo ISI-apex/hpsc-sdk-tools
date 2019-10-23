@@ -171,9 +171,11 @@ try:
                 continue # will do stuff for the children
             if check_initialize(cfg, m):
                 # instruct for creation of a composite image with no components
-                composite_images[m] = True
                 parent = get_slice_parent(cfg, m)
                 if parent is not None:
+                    if cfg.get_prop_as_bool(parent, 'skip', False):
+                        continue
+
                     fmt = image_fmt(cfg, parent)
                     bld_image = bld_path(composite_image_name(cfg, parent))
                     slice_bld_image = bld_path(slice_image_name(cfg, parent, m))
@@ -184,6 +186,7 @@ try:
                     bld_image = bld_path(composite_image_name(cfg, m))
                     artifact_relations[bld_image] = [] # no blobs => empty image
                     load_image = bld_image
+                composite_images[m] = True
                 zebu_id, = cfg.get_props(m, 'zebu_id')
                 zebu_map[zebu_id] = zebu_load_path(load_image, fmt)
 
