@@ -34,10 +34,9 @@ for f in args.input:
         k = m.group(1)
         op = m.group(2)
         v = m.group(3)
-        print(k, op, v)
         if op == '+':
             d[k] += " " + v
-        elif op == '-':
+        elif op == '-' and k in d:
             kept = filter(lambda x: x.strip() != v.strip(), d[k].split())
             d[k] = " ".join(kept)
         else:
