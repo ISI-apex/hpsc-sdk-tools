@@ -27,21 +27,19 @@ for f in args.input:
         line = re.sub(r'\s*#.*', '', line.strip())
         if len(line) == 0:
             continue
-        if '=' not in line:
+        m = re.match(r"^\s*([^\s=]*?)\s*([+-])?=(.*)$", line)
+        if not m:
             raise Exception(
                 "line: %u: syntax error: not a key=value pair" % line_num)
-        lhs, v = line.split('=', maxsplit=1)
-        if re.match(r".*\+$", lhs):
-            k = lhs[:-1]
-            append = True
-        else:
-            k = lhs
-            append = False
-        if re.search(r"\s", k):
-            raise Exception("syntax error: line %u: invalid identifier: %s" \
-                % (line_num, k))
-        if append:
+        k = m.group(1)
+        op = m.group(2)
+        v = m.group(3)
+        print(k, op, v)
+        if op == '+':
             d[k] += " " + v
+        elif op == '-':
+            kept = filter(lambda x: x.strip() != v.strip(), d[k].split())
+            d[k] = " ".join(kept)
         else:
             d[k] = v
     fin.close()
