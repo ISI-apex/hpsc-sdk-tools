@@ -421,13 +421,6 @@ then
     COMMAND+=(-monitor stdio)
 fi
 
-echo "Final Command (one arg per line):"
-for arg in "${COMMAND[@]}"
-do
-    echo "$arg"
-done
-echo
-
 # Real actions (that may generate 'Waiting...' messages commence here)
 
 KILL_CONSOLES=1
@@ -452,6 +445,13 @@ esac
 
 if [ "$DO_RUN" -eq 1 ]
 then
+    echo "Final Command (one arg per line):"
+    for arg in "${COMMAND[@]}"
+    do
+        echo "$arg"
+    done
+    echo
+
     echo "Final Command:"
     echo "${COMMAND[*]}"
     echo
