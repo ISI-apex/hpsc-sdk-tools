@@ -70,17 +70,6 @@ run() {
     "$@"
 }
 
-function set_default()
-{
-    local name="$1"
-    local val="$2"
-    # Check for set/unset not emptiness to let empty carry meaning
-    if [ ! "${!name+_}" ]
-    then
-        declare -g "$name=$val"
-    fi
-}
-
 function setup_screen()
 {
     local SESSION=$1
@@ -291,10 +280,6 @@ done
 : "${FWD_PORT_BASE:=$((PORT_BASE + 2 * MAX_INSTANCES * MAX_FWD_PORTS + ID))}"
 
 : "${SERIAL_ID:=$ID}"
-
-set_default SERIAL_PORT_NAMES[serial0] "lsio0"
-set_default SERIAL_PORT_NAMES[serial1] "lsio1"
-set_default SERIAL_PORT_NAMES[serial2] "hpps"
 
 ## Actions commence here
 
