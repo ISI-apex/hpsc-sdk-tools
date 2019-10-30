@@ -138,7 +138,7 @@ function attach_consoles()
         echo "Adding console $pty for port $p to screen session $sess"
         screen -h $SCREEN_SCROLLBACK -d -m -S "$pty_sess" "$pty"
         screen -S "$sess" -X screen screen -m -r "$pty_sess"
-        sleep 1 # give the above command time to execute
+        sleep 2 # give the above command time to execute
         echo "Attach to screen session from another window with:"
         echo "  screen -r $sess"
     done
