@@ -253,8 +253,11 @@ setup_console()
     do
         setup_screen "$session"
     done
-    attach_consoles &
-    CONSOLES_PID=$!
+    if [ "${#SCREEN_SESSIONS[@]}" -gt 0 ]
+    then
+        attach_consoles &
+        CONSOLES_PID=$!
+    fi
 }
 
 preload_memory()
