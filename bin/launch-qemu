@@ -545,10 +545,9 @@ do
     if [ ! -z "${SERIAL_PORT_NAMES[$p]}" ] # empty name means disabled
     then
         SCREEN_SESSIONS[$p]="hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}"
-        SERIAL_PORT_ARGS+=(-serial pty)
-    else
-        SERIAL_PORT_ARGS+=(-serial null)
     fi
+    # always open the serial ports
+    SERIAL_PORT_ARGS+=(-serial pty)
 done
 
 RUN=0
@@ -588,6 +587,14 @@ EOF
         ;;
 esac
 
+# handle the case when no reset flag is given and there are no screen sessions
+if [ "$CMD" == "run" ] && [ "$RESET" -eq 1 ] && [ "${#SCREEN_SESSIONS[@]}" -eq 0 ]
+then
+    RESET_FLAG=""
+else
+    RESET_FLAG="-S"
+fi
+
 if [ "$RUN" -eq 0 ]
 then
     exit
@@ -608,7 +615,7 @@ COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -m ${MAX_VM_MEM}
     -nographic
     -qmp "telnet::$QMP_PORT,server,nowait"
-    -S
+    "$RESET_FLAG"
     -D "${LOG_FILE}" -d "fdt,guest_errors,unimp,cpu_reset"
     -hw-dtb "${QEMU_DT_FILE}"
     "${SERIAL_PORT_ARGS[@]}"
@@ -688,6 +695,11 @@ then
     echo -e "$FWD_PORTS_INFO"
 fi
 echo
+
+if [ "$CMD" == "run" ] && [ "$RESET" -eq 0 ] && [ "${#SCREEN_SESSIONS[@]}" -eq 0 ]
+then
+    printf "Waiting for 'continue' (aka. reset) command via GDB or QMP connection...\n\n"
+fi
 
 # Make it so!
 "${COMMAND[@]}"
