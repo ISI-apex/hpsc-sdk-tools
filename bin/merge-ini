@@ -19,14 +19,11 @@ if len(args.input) == 0:
     outfp.close()
     sys.exit(0)
 
-base_file, overlay_files = args.input[0], args.input[1:]
-
 cfg = configparser.ConfigParser()
-cfg.read(base_file)
 
 # To support append/remove we can't just cfg.read(overlay_files)
 # ConfigParser does not support += or -= so we add that support.
-for overlay_file in overlay_files:
+for overlay_file in args.input:
     overlay = configparser.ConfigParser()
     overlay.read(overlay_file)
 
