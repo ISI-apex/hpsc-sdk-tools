@@ -27,6 +27,11 @@ for overlay_file in args.input:
     overlay = configparser.ConfigParser()
     overlay.read(overlay_file)
 
+    # DEFAULT is not a normal section so accessor used below don't work on it
+    if len(overlay['DEFAULT']) > 0:
+        print("ERROR: DEFAULT section not supported", file=sys.stderr)
+        sys.exit(1)
+
     for sect in overlay.sections():
         if not cfg.has_section(sect):
             cfg.add_section(sect)
