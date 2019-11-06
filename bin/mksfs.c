@@ -496,7 +496,7 @@ static uint32_t read_size_from_ini_file_or_exit(const char *fname)
         exit(1);
     }
 
-    rc = ini_read_opt_as_size(&img_size, fin, "DEFAULT", "size");
+    rc = ini_read_opt_as_size(&img_size, fin, "sfs", "size");
     if (rc) {
         fclose(fin);
         fprintf(stderr, "error: failed to get image size from config file\n");
