@@ -410,16 +410,20 @@ fi
 
 KILL_CONSOLES=1
 DO_RUN=0
+DO_PRINT=0
 
 echo "CMD: ${CMD}"
 case "${CMD}" in
     dry)
+        DO_PRINT=1
         ;;
    run)
         setup_console
+        DO_PRINT=1
         DO_RUN=1
         ;;
    gdb)
+        DO_PRINT=1
         DO_RUN=1
         ;;
    gdb_run)
@@ -428,7 +432,7 @@ case "${CMD}" in
         ;;
 esac
 
-if [ "$DO_RUN" -eq 1 ]
+if [ "$DO_PRINT" -eq 1 ]
 then
     echo "Final Command (one arg per line):"
     for arg in "${COMMAND[@]}"
@@ -450,6 +454,9 @@ then
         echo -e "$FWD_PORTS_INFO"
     fi
     echo
+fi
 
+if [ "$DO_RUN" -eq 1 ]
+then
     "${COMMAND[@]}"
 fi
