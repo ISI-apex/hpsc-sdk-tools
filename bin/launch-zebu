@@ -93,30 +93,22 @@ mkdir -p "${RUN_DIR}"
 # The map file needs to be copied into the sdk directory for zebu scripts to
 # pick it up, unfortunately. Couldn't figure out a way to parametrize.
 # Must match the name in sdk/zebu/designFeatures
-ZEBU_LOAD_MEM_FILE=$ZEBU/preload.mem
 if [ ! -z "${PRELOAD_MEM_MAP}" ]
 then
-    run cp "${PRELOAD_MEM_MAP}" "${ZEBU_LOAD_MEM_FILE}"
-else
-    run truncate --size 0 "${ZEBU_LOAD_MEM_FILE}"
+    ZEBU_ARGS="-m ${PRELOAD_MEM_MAP}"
 fi
-echo "Zebu memory preload file:"
-cat "${ZEBU_LOAD_MEM_FILE}"
-echo
 
 # The Zebu emulator can only be invoked from the SDK dir (would be nice to fix)
 #
-# The config vars are defined in sdk/bld/env.sh. Can't define then here because
+# The ZEBU config var is defined in sdk/bld/env.sh. Can't define then here because
 # they are also needed to build zebu part of the SDK, so defined in sdk/Makefile.
-COMMAND+=($ZEBU_SHELL -c "cd $ZEBU && source $ZEBU_ENV && zRci run_hpsc.ucli")
-echo "Final command: ${COMMAND[@]}"
 
 echo "CMD: ${CMD}"
 case "${CMD}" in
     dry)
         ;;
     run)
-        "${COMMAND[@]}"
+        cd $ZEBU && run ./run.csh ${ZEBU_ARGS}
         ;;
     *)
         echo "Unknown command: ${CMD}" 1>&2

@@ -377,7 +377,6 @@ PATHS=$(subst $(SPACE),:,$(abspath \
 ))
 
 # Available only on the Zebu server
-ZEBU=zebu
 ZEBU_SHELL=csh
 ZEBU_ENV=$(abspath $(S_zebu)/zebu_setup.sh)
 
@@ -388,8 +387,6 @@ export QEMU_DT_SRC="hpsc-arch.dts"
 export QEMU_DT_FILE="$$QEMU_DT/LATEST/SINGLE_ARCH/hpsc-arch.dtb"
 export HPSC_SDK_CONF="$(abspath $(S_sdk-tools)/conf)"
 export ZEBU="$(abspath $(S_zebu))"
-export ZEBU_ENV="$(abspath $(ZEBU_ENV))"
-export ZEBU_SHELL="$(ZEBU_SHELL)"
 endef
 
 $(BLD)/env.sh: export ENV_SH=$(ENV)
