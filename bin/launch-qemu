@@ -702,4 +702,4 @@ then
 fi
 
 # Make it so!
-"${COMMAND[@]}"
+exec "${COMMAND[@]}"
