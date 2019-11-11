@@ -546,7 +546,7 @@ $(ART_openssl): | $(ART_ncurses)
 $(ART_dtc): | $(ART_pkgconfig)
 	$(MAKE) -C $(DIR) NO_PYTHON=1 PREFIX=$(HPREFIX) install
 
-$(ART_screen): | $(ART_ncurses) $(ART_openssl)
+$(ART_screen): | $(ART_ncurses)
 $(ART_curl): | $(ART_openssl)
 
 $(ART_make):
