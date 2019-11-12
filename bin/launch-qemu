@@ -372,10 +372,21 @@ NET_NIC=(-net "nic,macaddr=$MAC_ADDR")
 case "${NET}" in
 tap)
     # See HPSC Qemu User Guide for setup. In short, do this once, as root:
+    #     cd qemu && mkdir qemu-bld
+    #     cd qemu-bld && ./configure --prefix=$QEMU_PREFIX ...
+    #     cd qemu-bld && make install
     #     ip link add $BRIDGE type bridge
-    #     echo "allow $BRIDGE" >> /usr/local/etc/qemu/bridge.conf
-    #     install -o root -g root -m 4775 /usr/local/bin/qemu-bridge-helper $QEMU_BRIDGE_PREFIX
-    COMMAND+=("${NET_NIC[@]}" -net "tap,br=$BRIDGE,helper=qemu-bridge-helper")
+    #     echo "allow $BRIDGE" >> $QEMU_PREFIX/etc/qemu/bridge.conf
+    #     sudo chown root $QEMU_PREFIX/libexec/qemu-bridge-helper
+    #     sudo chmod u+s  $QEMU_PREFIX/libexec/qemu-bridge-helper
+    #     export PATH=$QEMU_PREFIX/libexec:$PATH
+    if ! which qemu-bridge-helper
+    then
+       echo "ERROR: qemu-bridge-helper not found in PATH" 1>&2
+       exit 1
+    fi
+    COMMAND+=("${NET_NIC[@]}"
+         -net "tap,br=$BRIDGE,helper=$(which qemu-bridge-helper)")
     ;;
 user)
     if [[ "${#FWD_PORTS[@]}" -gt $MAX_FWD_PORTS ]]
