@@ -161,6 +161,7 @@ B_qemu=$(BLD)/qemu
 # Build Qemu s.t. its GDB stub points to the given target CPU cluster:
 # TRCH=0, RTPS_R52=1, RTPS_A53=2, HPPS=3
 QEMU_GDB_TARGET_CLUSTER=3
+QEMU_DEFAULT_BRIDGE=br0
 QEMU_ARGS=
 QEMU_TARGET=aarch64-softmmu
 $(B_qemu)/config.status: $(BLD)/$(DEP_ENV_FILE) | $(B_qemu)/.
@@ -173,15 +174,13 @@ $(B_qemu)/config.status: $(BLD)/$(DEP_ENV_FILE) | $(B_qemu)/.
 # TODO: add install-doc target (requires Sphynx 1.3, not in CentOS 7)
 $(B_qemu)/$(QEMU_TARGET)/qemu-system-aarch64: $(B_qemu)/config.status
 	$(MAKE) -C $(B_qemu) $(QEMU_ARGS)
-$(B_qemu): $(B_qemu)/$(QEMU_TARGET)/qemu-system-aarch64
+$(B_qemu): $(B_qemu)/$(QEMU_TARGET)/qemu-system-aarch64 | $(SDK_PREFIX)/etc/qemu/.
 	$(MAKE) -C $(B_qemu) $(QEMU_ARGS) install
-# Install helper for tap networking: must be run as root for setuid, hence not
-# done by default in the qemu target
-DEFAULT_BRIDGE=br0
-# This target needs to be run with root privileges
-$(B_qemu)/sysinstall:
-	install -o root -g root -m 4775 $(B_qemu)/$@ $(abspath $(SDK_PREFIX))/
-	echo 'allow $(DEFAULT_BRIDGE)' >> $(abspath $(SDK_PREFIX))/etc/qemu/bridge.conf
+	echo 'allow $(QEMU_DEFAULT_BRIDGE)' >> $(SDK_PREFIX)/etc/qemu/bridge.conf
+# This target assumes access to sudo (needs to set setuid bit)
+$(B_qemu)/install: $(B_qemu)
+	sudo chown root $(SDK_PREFIX)/libexec/qemu-bridge-helper
+	sudo chmod u+s  $(SDK_PREFIX)/libexec/qemu-bridge-helper
 $(B_qemu)/clean:
 	$(MAKE) -C $(B_qemu) $(QEMU_ARGS) clean
 $(B_qemu)/clean/all:
@@ -371,6 +370,7 @@ TC_PATHS=$(foreach t,$(DEPS_TC),$(BLD)/$(TC)/$(DIR_$(t))/bin)
 SPACE=$(subst ,, )
 PATHS=$(subst $(SPACE),:,$(abspath \
 	$(SDK_PREFIX)/bin \
+	$(SDK_PREFIX)/libexec \
 	$(TC_PATHS) \
 	$(S_sdk-tools)/bin \
 	$(S_zebu)/bin \
