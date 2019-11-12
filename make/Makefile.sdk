@@ -211,7 +211,7 @@ $(B_qemu)/config.status: $(BLD)/$(DEP_ENV_FILE) | $(B_qemu)/.
 	cd $(@D) && CFLAGS+=-DGDB_TARGET_CLUSTER=$(QEMU_GDB_TARGET_CLUSTER) \
 		../../$(S_qemu)/configure \
 		--prefix=$(abspath $(SDK_PREFIX)) \
-		--python=$$(which python2) \
+		--python=$$(which python3) \
 		--target-list=$(QEMU_TARGET) --enable-fdt \
 		--disable-kvm --disable-xen --enable-debug --disable-werror \
 		--enable-trace-backends=simple
