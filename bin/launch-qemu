@@ -144,7 +144,6 @@ function attach_consoles()
         echo "  screen -r $sess"
     done
 
-    echo "Commanding Qemu to reset the machine..."
     if [ "$RESET" -eq 1 ]
     then
         echo "Sending 'continue' command to Qemu to reset the machine..."
