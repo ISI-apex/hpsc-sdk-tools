@@ -253,7 +253,7 @@ VER_screen=4.6.2
 URL_screen=https://ftp.gnu.org/gnu/screen
 ART_screen=$(BIN)/screen
 
-VER_git=2.23.0
+VER_git=2.24.0
 URL_git=https://mirrors.edge.kernel.org/pub/software/scm/git
 TARBALL_git=git-$(VER_git).tar.xz
 ART_git=$(BIN)/git
