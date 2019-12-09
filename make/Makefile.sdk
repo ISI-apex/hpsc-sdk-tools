@@ -237,7 +237,7 @@ TARBALL_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)-linux.tar.bz2
 DIR_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)
 
 VER_arm_gnu_a=7.4.1-2019.02
-URL_arm_gnu_a=https://releases.linaro.org/components/toolchain/binaries/latest-7/aarch64-linux-gnu
+URL_arm_gnu_a=https://releases.linaro.org/components/toolchain/binaries/7.4-2019.02/aarch64-linux-gnu
 TARBALL_arm_gnu_a=gcc-linaro-$(VER_arm_gnu_a)-x86_64_aarch64-linux-gnu.tar.xz
 DIR_arm_gnu_a=gcc-linaro-$(VER_arm_gnu_a)-x86_64_aarch64-linux-gnu
 
