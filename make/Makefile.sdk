@@ -38,7 +38,10 @@ $(FETCH_CACHE)/$(2)/$(TARBALL_$(1)): | $(FETCH_CACHE)/$(2)/.
 .SECONDARY: $(FETCH_CACHE)/$(2)/$(TARBALL_$(1)) $(FETCH)/$(2)/$(TARBALL_$(1))
 $(FETCH)/$(2): $(FETCH)/$(2)/$(TARBALL_$(1))
 .PHONY: $(FETCH)/$(2)
-$(FETCH): $(FETCH)/$(2)
+endef
+# fetch-auto-rule(subdir)
+define fetch-auto-rule
+$(FETCH): $(FETCH)/$(1)
 endef
 .PHONY: $(FETCH)
 
@@ -252,7 +255,8 @@ all: $(BLD)/$(TC)
 clean: $(BLD)/$(TC)/clean
 
 $(foreach d,$(DEPS_TC),$(eval $(call fetch-rule,$(d),$(TC_FETCH)))\
-					   $(eval $(call extract-rule,$(d),$(TC),$(TC_FETCH))))
+			$(eval $(call fetch-auto-rule,$(TC_FETCH)))\
+			$(eval $(call extract-rule,$(d),$(TC),$(TC_FETCH))))
 FETCH_SUBDIRS += $(TC_FETCH)
 
 $(TC_RELOCATE_TARGETS): $(BLD)/$(TC)/%/relocate : $(BLD)/$(TC)/% $(ART_glibc)
@@ -304,6 +308,7 @@ $(BLD)/$(TC_SYSROOT)/clean:
 
 $(foreach d,$(DEPS_TC_SYSROOT),\
 	$(eval $(call fetch-rule,$(d),$(TC_SYSROOT)))\
+	$(if $(TC_RELOCATE),$(eval $(call fetch-auto-rule,$(TC_SYSROOT))))\
 	$(eval $(call extract-rule,$(d),$(TC_SYSROOT),$(TC_SYSROOT)))\
 	$(eval $(call build-rule,$(d),$(TC_SYSROOT))))
 FETCH_SUBDIRS += $(TC_SYSROOT)
@@ -337,6 +342,7 @@ clean: $(BLD)/$(EXTERN)/clean
 
 $(foreach d,$(DEPS_EXTERN),\
 	$(eval $(call fetch-rule,$(d),$(EXTERN)))\
+	$(eval $(call fetch-auto-rule,$(EXTERN)))\
 	$(eval $(call extract-rule,$(d),$(EXTERN),$(EXTERN)))\
 	$(eval $(call build-rule,$(d),$(EXTERN))))
 FETCH_SUBDIRS += $(EXTERN)
