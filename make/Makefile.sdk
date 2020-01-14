@@ -306,12 +306,21 @@ ART_zlib=$(TC_SYSROOT_PREFIX)/lib/libz.so
 EXTERN:=extern
 DEPS_EXTERN=\
 	gdb \
+	tclx \
 
 # HPSC SDK (Qemu) requires GDB with multi-arch support for debugging
 VER_gdb=8.3.1
 URL_gdb=https://ftp.gnu.org/gnu/gdb
 TARBALL_gdb=gdb-$(VER_gdb).tar.xz
 ART_gdb=$(SDK_PREFIX)/bin/gdb
+
+# This should match the Tcl installed in the system (note: may have multiple)
+TCL_VERSION=8.6
+
+VER_tclx=8.4.3
+URL_tclx=https://github.com/flightaware/tclx/archive
+FNAME_tclx=v$(VER_tclx).tar.gz
+ART_tclx=$(SDK_PREFIX)/lib/tclx$(TCL_VERSION)/tclx.tcl
 
 DEPS = \
 	$(DEPS_TC_SYSROOT) \
@@ -365,6 +374,12 @@ $(ART_gdb):
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
 
+$(ART_tclx):
+	cd $(DIR) && ./configure --prefix=$(abspath $(SDK_PREFIX)) \
+		--exec-prefix=$(abspath $(SDK_PREFIX))
+	$(MAKE) -C $(DIR)
+	$(MAKE) -C $(DIR) install
+
 # We make a copy, so that we're self-sufficient in case FETCH_CACHE goes away
 ifneq ($(patsubst %.,%,$(FETCH)),$(FETCH_CACHE)) # strip . from /. (see mkdir rule)
 # This mkdir rule is so that $(FETCH)/% doesn't match $(FETCH)/. and create
@@ -402,6 +417,7 @@ export QEMU_DT_SRC="hpsc-arch.dts"
 export QEMU_DT_FILE="$$QEMU_DT/LATEST/SINGLE_ARCH/hpsc-arch.dtb"
 export HPSC_SDK_CONF="$(abspath $(S_sdk-tools)/conf)"
 export ZEBU="$(abspath $(S_zebu))"
+export TCLLIBPATH="$(abspath $(SDK_PREFIX)/lib)"
 endef
 
 $(BLD)/env.sh: export ENV_SH=$(ENV)
