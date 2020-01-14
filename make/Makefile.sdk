@@ -34,7 +34,7 @@ clean:
 # fetch-rule(component,subdir)
 define fetch-rule
 $(FETCH_CACHE)/$(2)/$(TARBALL_$(1)): | $(FETCH_CACHE)/$(2)/.
-	$(WGET) --no-verbose -O $$@ $(URL_$(1))/$$(@F)
+	$(WGET) --no-verbose -O $$@ $(URL_$(1))/$(FNAME_$(1))
 .SECONDARY: $(FETCH_CACHE)/$(2)/$(TARBALL_$(1)) $(FETCH)/$(2)/$(TARBALL_$(1))
 $(FETCH)/$(2): $(FETCH)/$(2)/$(TARBALL_$(1))
 .PHONY: $(FETCH)/$(2)
@@ -294,14 +294,36 @@ DEPS_TC_SYSROOT=\
 VER_glibc=2.20
 URL_glibc=https://ftp.gnu.org/gnu/libc
 TARBALL_glibc=glibc-$(VER_glibc).tar.xz
-DIR_glibc=glibc-$(VER_glibc)
 ART_glibc=$(TC_SYSROOT_PREFIX)/lib/libc.so
 
 VER_zlib=1.2.11
 URL_zlib=https://www.zlib.net
 TARBALL_zlib=zlib-$(VER_zlib).tar.xz
-DIR_zlib=zlib-$(VER_zlib)
 ART_zlib=$(TC_SYSROOT_PREFIX)/lib/libz.so
+
+# Components fetched from external source and built from source
+
+EXTERN:=extern
+DEPS_EXTERN=\
+	gdb \
+
+# HPSC SDK (Qemu) requires GDB with multi-arch support for debugging
+VER_gdb=8.3.1
+URL_gdb=https://ftp.gnu.org/gnu/gdb
+TARBALL_gdb=gdb-$(VER_gdb).tar.xz
+ART_gdb=$(SDK_PREFIX)/bin/gdb
+
+DEPS = \
+	$(DEPS_TC_SYSROOT) \
+	$(DEPS_EXTERN) \
+
+# Defaults for url fname, tarballs and dirs, override the exceptions above
+$(foreach d,$(DEPS),$(eval TARBALL_$(d)?=$(d)-$(VER_$(d)).tar.gz))
+$(foreach d,$(DEPS),$(eval FNAME_$(d)?=$(TARBALL_$(d))))
+$(foreach d,$(DEPS),$(eval DIR_$(d)?=$(d)-$(VER_$(d))))
+
+all: $(BLD)/$(EXTERN)
+clean: $(BLD)/$(EXTERN)/clean
 
 all: $(if $(TC_RELOCATE),$(BLD)/$(TC_SYSROOT))
 clean: $(BLD)/$(TC_SYSROOT)/clean
@@ -326,22 +348,6 @@ $(ART_zlib):
 	cd $(DIR) && ./configure --prefix=$(abspath $(TC_SYSROOT_PREFIX))
 	$(MAKE) -C $(DIR)
 	$(MAKE) -C $(DIR) install
-
-# Components fetched from external source and built from source
-
-EXTERN:=extern
-DEPS_EXTERN=\
-	gdb \
-
-# HPSC SDK (Qemu) requires GDB with multi-arch support for debugging
-VER_gdb=8.3.1
-URL_gdb=https://ftp.gnu.org/gnu/gdb
-TARBALL_gdb=gdb-$(VER_gdb).tar.xz
-DIR_gdb=gdb-$(VER_gdb)
-ART_gdb=$(SDK_PREFIX)/bin/gdb
-
-all: $(BLD)/$(EXTERN)
-clean: $(BLD)/$(EXTERN)/clean
 
 $(foreach d,$(DEPS_EXTERN),\
 	$(eval $(call fetch-rule,$(d),$(EXTERN)))\
