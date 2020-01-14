@@ -239,13 +239,13 @@ URL_arm_gnu_rm=https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2018q2
 TARBALL_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)-linux.tar.bz2
 DIR_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)
 
-VER_MAJMIN_arm_gnu_a=8.3
-VER_BLD_arm_gnu_a=2019.03
+VER_MAJMIN_arm_gnu_a=9.2
+VER_BLD_arm_gnu_a=2019.12
 VER_arm_gnu_a=$(VER_MAJMIN_arm_gnu_a)-$(VER_BLD_arm_gnu_a)
 # Page: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a/downloads
 URL_arm_gnu_a=https://developer.arm.com/-/media/Files/downloads/gnu-a/$(VER_arm_gnu_a)/binrel
-TARBALL_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-linux-gnu.tar.xz
-DIR_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-linux-gnu
+TARBALL_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-none-linux-gnu.tar.xz
+DIR_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-none-linux-gnu
 
 TC_TARGETS=$(foreach tc,$(DEPS_TC),$(BLD)/$(TC)/$(DIR_$(tc)))
 TC_RELOCATE_TARGETS=$(foreach t,$(TC_TARGETS),$(t)/relocate)
