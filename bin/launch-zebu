@@ -33,6 +33,7 @@ function usage()
     echo "                    run - start emulation (default)" 1>&2
     echo "               -e env: load environment settings from file" 1>&2
     echo "               -m mapfile: file specifying what to preload into memory" 1>&2
+	echo "				 -S : do not launch the emulator on startup" 1>&2
     echo "               -h : show this message" 1>&2
     exit 1
 }
@@ -43,8 +44,9 @@ run() {
 }
 
 ENV_FILES=("${PWD}/zebu-env.sh")
+ZEBU_ARGS=()
 
-while getopts "h?e:m:" o; do
+while getopts "hS?e:m:" o; do
     case "${o}" in
         e)
             ENV_FILES+=("$OPTARG")
@@ -52,6 +54,9 @@ while getopts "h?e:m:" o; do
         m)
             PRELOAD_MEM_MAP="${OPTARG}"
             ;;
+		S)
+			ZEBU_ARGS+=(-S)
+			;;
         h)
             usage
             ;;
@@ -95,7 +100,7 @@ mkdir -p "${RUN_DIR}"
 # Must match the name in sdk/zebu/designFeatures
 if [ ! -z "${PRELOAD_MEM_MAP}" ]
 then
-    ZEBU_ARGS="-m ${PRELOAD_MEM_MAP}"
+    ZEBU_ARGS+=(-m ${PRELOAD_MEM_MAP})
 fi
 
 # The Zebu emulator can only be invoked from the SDK dir (would be nice to fix)
@@ -108,7 +113,7 @@ case "${CMD}" in
     dry)
         ;;
     run)
-        cd $ZEBU && run ./run.csh ${ZEBU_ARGS}
+        cd $ZEBU && run ./run.csh ${ZEBU_ARGS[@]}
         ;;
     *)
         echo "Unknown command: ${CMD}" 1>&2
