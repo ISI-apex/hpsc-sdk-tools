@@ -52,22 +52,34 @@ def check_bitmask_map(vmap):
 def spec_to_type(spec):
     t = spec["type"]
     s = spec["spec"]
+
+    def check_spec(s_list, length):
+        if len(s) < length:
+            raise SchemaError("too few elems in spec for type %s (%d < %d)" % \
+                (t, len(s), length))
+
     if t == "bitfield" or t == "bitmask":
+        check_spec(s, 3)
         if len(s) >= 4:
             vmap = s[3]
             if t == "bitmask":
                 check_bitmask_map(vmap)
         else:
             vmap = None
-        return Bitfield(word=s[0], bit=s[1], width=s[2], vmap=vmap)
+        return BitField(word=s[0], bit=s[1], width=s[2], vmap=vmap)
     elif t == "u32":
-        return Bitfield(word=s[0], bit=0, width=32, vmap=None)
+        check_spec(s, 1)
+        return BitField(word=s[0], bit=0, width=32, vmap=None)
+    elif t == "strlist":
+        check_spec(s, 2)
+        return StrList(word=s[0], num_words=s[1])
     else:
         raise SchemaError("invalid type: %s" % t)
 
-class Bitfield:
+class BitField:
     def __init__(self, word, bit, width, vmap=None):
         self.word = word
+        self.num_words = 1
         self.bit = bit
         self.width = width
         self.vmask = (1 << self.width) - 1
@@ -85,7 +97,32 @@ class Bitfield:
         v = reduce(lambda x, y: x | self.map(y), val.split(), 0x0)
         if v & self.vmask != v:
             raise FieldValueError("value 0x%x wider than field width %u" % (v, self.width))
-        return (v & self.vmask) << self.bit
+        return [(v & self.vmask) << self.bit]
+
+class StrList():
+    def __init__(self, word, num_words):
+        self.word = word
+        self.num_words = num_words
+    def build(self, val):
+        strings = [s.encode("ascii") for s in val.split()]
+        barray = b""
+        for s in strings:
+           barray += s + b'\0'
+        barray += b'\0'
+        print(barray)
+        words = []
+        for i in range(0, len(barray), 4):
+            w = 0
+            for j in range(4):
+                if i + j >= len(barray):
+                    break
+                w |= barray[i + j] << (j * 8)
+            words.append(w)
+            if len(words) > self.num_words:
+                raise FieldValueError(
+                        "value '%s' exceeds size of field (%u words)" % \
+                                (val, self.num_words))
+        return words
 
 class ConfigError(CfgcError):
     pass
@@ -118,11 +155,13 @@ def compile(cfg, schema):
             try:
                 v = cfg[s][k]
                 f = spec_to_type(sect_sch[k])
-                if f.word >= len(cfg_bin):
-                    cfg_bin.extend([0x0] * (f.word + 1 - len(cfg_bin)))
-                cfg_bin[f.word] |= f.build(v)
+                if f.word + f.num_words >= len(cfg_bin):
+                    num_extra_words = f.word + f.num_words - len(cfg_bin)
+                    cfg_bin.extend([0x0] * num_extra_words)
+                for i, word in enumerate(f.build(v)):
+                    cfg_bin[f.word + i] |= word
             except SchemaError as exc:
-                raise SchemaError("field %s.%s spec invalid: %s" % \
+                raise SchemaError("spec for field %s.%s invalid: %s" % \
                         (s, k, *exc.args))
             except FieldValueError as exc:
                 raise ConfigValueError("field %s.%s value '%s' invalid: %s" % \
