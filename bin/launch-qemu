@@ -351,11 +351,10 @@ fi
 # See QEMU User Guide in HPSC release for explanation of the command line
 # arguments.
 
-FILE_ARGS=()
 for arg_file in "${ARG_FILES[@]}"
 do
 	echo "Loading arguments from file: ${arg_file}"
-	FILE_ARGS+=($(cat "${arg_file}"))
+	QEMU_ARGS+=($(cat "${arg_file}"))
 done
 
 COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
@@ -367,7 +366,6 @@ COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
     -D "${LOG_FILE}" -d "$LOG_CATEGORIES"
     -hw-dtb "${QEMU_DT_FILE}"
     "${SERIAL_PORT_ARGS[@]}"
-    "${FILE_ARGS[@]}"
     "${QEMU_ARGS[@]}")
 
 if [[ ! -z "${GDB_PORT}" && "${GDB_PORT}" != "none" ]] # ugly due to positive default
