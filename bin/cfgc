@@ -24,8 +24,46 @@ def int_autobase(val):
         return int(val, 8)
     return int(val, 10)
 
-class FieldValueError(Exception):
+class CfgcError(Exception):
     pass
+
+class SchemaError(CfgcError):
+    pass
+class FieldValueError(CfgcError):
+    pass
+
+def num_bits(x):
+    n = 0
+    while x:
+        if x & 0x1 == 0x1:
+            n += 1
+        x >>= 1
+    return n
+
+def check_bitmask_map(vmap):
+    for k1 in vmap:
+        if num_bits(vmap[k1]) != 1:
+            raise SchemaError("bitmask value with mutliple bits: %s (0x%x)" % \
+                    (k1, vmap[k1]))
+        for k2 in vmap:
+            if k1 != k2 and vmap[k1] == vmap[k2]:
+                raise SchemaError("bitmask values overlap: %s, %s" % (k1, k2))
+
+def spec_to_type(spec):
+    t = spec["type"]
+    s = spec["spec"]
+    if t == "bitfield" or t == "bitmask":
+        if len(s) >= 4:
+            vmap = s[3]
+            if t == "bitmask":
+                check_bitmask_map(vmap)
+        else:
+            vmap = None
+        return Bitfield(word=s[0], bit=s[1], width=s[2], vmap=vmap)
+    elif t == "u32":
+        return Bitfield(word=s[0], bit=0, width=32, vmap=None)
+    else:
+        raise SchemaError("invalid type: %s" % t)
 
 class Bitfield:
     def __init__(self, word, bit, width, vmap=None):
@@ -49,7 +87,7 @@ class Bitfield:
             raise FieldValueError("value 0x%x wider than field width %u" % (v, self.width))
         return (v & self.vmask) << self.bit
 
-class ConfigError(Exception):
+class ConfigError(CfgcError):
     pass
 class ConfigKeyError(ConfigError):
     pass
@@ -79,12 +117,13 @@ def compile(cfg, schema):
                                      (k, s))
             try:
                 v = cfg[s][k]
-                f_spec = sect_sch[k]
-                f = Bitfield(word=f_spec[0], bit=f_spec[1], width=f_spec[2],
-                             vmap=f_spec[3] if len(f_spec) >= 4 else None)
+                f = spec_to_type(sect_sch[k])
                 if f.word >= len(cfg_bin):
                     cfg_bin.extend([0x0] * (f.word + 1 - len(cfg_bin)))
                 cfg_bin[f.word] |= f.build(v)
+            except SchemaError as exc:
+                raise SchemaError("field %s.%s spec invalid: %s" % \
+                        (s, k, *exc.args))
             except FieldValueError as exc:
                 raise ConfigValueError("field %s.%s value '%s' invalid: %s" % \
                                        (s, k, v, *exc.args)) from exc
@@ -107,6 +146,9 @@ try:
     binary = compile(cfg, schema)
 except ConfigError as exc:
     print("Error in ", args.ini_file, ": does not comply to schema:", *exc.args)
+    sys.exit(1)
+except CfgcError as exc:
+    print("Error in ", args.ini_file, ":", *exc.args)
     sys.exit(1)
 
 fout = open(args.bin_file, "wb")
