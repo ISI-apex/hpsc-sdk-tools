@@ -45,11 +45,12 @@ trap finish EXIT
 
 function usage()
 {
-    echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-a file] [-n netcfg [-p port]*] [-i id] [ cmd ]" 1>&2
+    echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-a file] [-n netcfg [-p port]*] [-i id] [[ cmd ] args...]" 1>&2
     echo "               cmd: command" 1>&2
     echo "                    dry - do everything except launching Qemu" 1>&2
     echo "                    run - start emulation (default)" 1>&2
     echo "                    gdb - launch the emulator in GDB" 1>&2
+    echo "               args: arguments to pass to Qemu command line" 1>&2
     echo "               -a file: file with arguments to add to the command line" 1>&2
     echo "               -d dt_file: Qemu device tree file that defines the machine" 1>&2
     echo "               -e env: load environment settings from file" 1>&2
@@ -215,11 +216,13 @@ while getopts "h?S?q?e:d:i:l:a:p:n:" o; do
     esac
 done
 shift $((OPTIND-1))
-CMD=$*
-
+CMD=$1
 if [ -z "${CMD}" ]
 then
     CMD="run"
+else
+    shift
+    QEMU_ARGS+=("$@")
 fi
 
 ## Internal parameters (can be changed at will)
