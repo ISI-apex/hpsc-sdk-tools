@@ -255,12 +255,6 @@ TC_RELOCATE_TARGETS=$(foreach t,$(TC_TARGETS),$(t)/relocate)
 $(BLD)/$(TC)/relocate: $(TC_RELOCATE_TARGETS)
 .PHONY: $(BLD)/$(TC) $(BLD)/$(TC)/clean $(BLD)/$(TC)/relocate
 
-all: $(BLD)/$(TC)
-clean: $(BLD)/$(TC)/clean
-
-$(foreach d,$(DEPS_TC),$(eval $(call fetch-rule,$(d),$(TC_FETCH)))\
-			$(eval $(call fetch-auto-rule,$(TC_FETCH)))\
-			$(eval $(call extract-rule,$(d),$(TC),$(TC_FETCH))))
 FETCH_SUBDIRS += $(TC_FETCH)
 
 $(TC_RELOCATE_TARGETS): $(BLD)/$(TC)/%/relocate : $(BLD)/$(TC)/% $(ART_glibc)
@@ -324,6 +318,7 @@ FNAME_tclx=v$(VER_tclx).tar.gz
 ART_tclx=$(SDK_PREFIX)/lib/tclx$(TCL_VERSION)/tclx.tcl
 
 DEPS = \
+	$(DEPS_TC) \
 	$(DEPS_TC_SYSROOT) \
 	$(DEPS_EXTERN) \
 
@@ -332,8 +327,8 @@ $(foreach d,$(DEPS),$(eval TARBALL_$(d)?=$(d)-$(VER_$(d)).tar.gz))
 $(foreach d,$(DEPS),$(eval FNAME_$(d)?=$(TARBALL_$(d))))
 $(foreach d,$(DEPS),$(eval DIR_$(d)?=$(d)-$(VER_$(d))))
 
-all: $(BLD)/$(EXTERN)
-clean: $(BLD)/$(EXTERN)/clean
+all: $(BLD)/$(TC)
+clean: $(BLD)/$(TC)/clean
 
 all: $(if $(TC_RELOCATE),$(BLD)/$(TC_SYSROOT))
 clean: $(BLD)/$(TC_SYSROOT)/clean
@@ -341,6 +336,13 @@ clean: $(BLD)/$(TC_SYSROOT)/clean
 $(BLD)/$(TC_SYSROOT)/clean:
 	rm -rf $(@D)
 
+all: $(BLD)/$(EXTERN)
+clean: $(BLD)/$(EXTERN)/clean
+
+# Note: these calls need to be after all the X_module vars are defined
+$(foreach d,$(DEPS_TC),$(eval $(call fetch-rule,$(d),$(TC_FETCH)))\
+			$(eval $(call fetch-auto-rule,$(TC_FETCH)))\
+			$(eval $(call extract-rule,$(d),$(TC),$(TC_FETCH))))
 $(foreach d,$(DEPS_TC_SYSROOT),\
 	$(eval $(call fetch-rule,$(d),$(TC_SYSROOT)))\
 	$(if $(TC_RELOCATE),$(eval $(call fetch-auto-rule,$(TC_SYSROOT))))\
