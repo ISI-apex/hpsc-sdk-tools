@@ -50,8 +50,8 @@ define extract-rule
 $(BLD)/$(2)/$(DIR_$(1)): $(FETCH)/$(3)/$(TARBALL_$(1)) | $(BLD)/$(2)/.
 	$(TAR) -C $$(@D) -x -f $$<
 	touch $$@
-$(BLD)/$(2)/$(DIR_$(1))/clean:
-	rm -rf $$(@D) $(ART_$(1))
+$(BLD)/$(2)/$(DIR_$(1))/clean $(BLD)/$(2)/$(1)/clean:
+	rm -rf $(BLD)/$(2)/$(DIR_$(1)) $(ART_$(1))
 $(BLD)/$(2): $(BLD)/$(2)/$(DIR_$(1))
 $(BLD)/$(2)/clean: $(BLD)/$(2)/$(DIR_$(1))/clean
 .PHONY: $(BLD)/$(2)/$(1) $(2)/$(DIR_$(1))/clean
