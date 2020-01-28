@@ -309,13 +309,16 @@ URL_gdb=https://ftp.gnu.org/gnu/gdb
 TARBALL_gdb=gdb-$(VER_gdb).tar.xz
 ART_gdb=$(SDK_PREFIX)/bin/gdb
 
-# This should match the Tcl installed in the system (note: may have multiple)
-TCL_VERSION=8.6
-
 VER_tclx=8.4.3
+# VER_INSTALL_tclx: set to the value of FULL_VERSION in configure.in
+# It is not clear why the tarball release version is different from this, but
+# this is indeed the version of Tclx not of Tcl; Tcl interpreter is able to
+# find Tclx in <prefix>/lib/tclx<VER_INSTALL_tclx> regardless of version of the
+# interpreter and regardless of the fact that TCLLIBPATH points to <prefix>/lib.
+VER_INSTALL_tclx=8.6
 URL_tclx=https://github.com/flightaware/tclx/archive
 FNAME_tclx=v$(VER_tclx).tar.gz
-ART_tclx=$(SDK_PREFIX)/lib/tclx$(TCL_VERSION)/tclx.tcl
+ART_tclx=$(SDK_PREFIX)/lib/tclx$(VER_INSTALL_tclx)/tclx.tcl
 
 DEPS = \
 	$(DEPS_TC) \
