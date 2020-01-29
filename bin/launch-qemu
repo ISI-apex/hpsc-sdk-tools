@@ -137,7 +137,8 @@ create_images()
         create_nand_image "$TRCH_NAND_SIZE0" "$TRCH_NAND_PAGE_SIZE0" "$TRCH_NAND_PAGES_PER_BLOCK0" \
                 "$TRCH_NAND_OOB_SIZE0" "$TRCH_NAND_ECC_SIZE0"
     create_if_absent "${HPPS_SRAM_FILE0}" "${HPPS_SMC_SRAM0}" "${HPPS_SMC_SRAM_OVERWRITE}" \
-        create_sram_image "${HPPS_SRAM_SIZE0}"
+        create_nand_image "$HPPS_NOR_SIZE0" "$HPPS_NOR_PAGE_SIZE0" "$HPPS_NOR_PAGES_PER_BLOCK0" \
+                "$HPPS_NOR_OOB_SIZE0" "$HPPS_NOR_ECC_SIZE0"
     create_if_absent "${HPPS_NAND_FILE0}" "${HPPS_SMC_NAND0}" "${HPPS_SMC_NAND_OVERWRITE}" \
         create_nand_image "$HPPS_NAND_SIZE0" "$HPPS_NAND_PAGE_SIZE0" "$HPPS_NAND_PAGES_PER_BLOCK0" \
                 "$HPPS_NAND_OOB_SIZE0" "$HPPS_NAND_ECC_SIZE0"
@@ -417,6 +418,11 @@ mkdir -p "${RUN_DIR}"
 : "${HPPS_SRAM_SIZE1:=0x01000000}"           #  16MB
 : "${HPPS_SRAM_SIZE2:=0x01000000}"           #  16MB
 : "${HPPS_SRAM_SIZE3:=0x01000000}"           #  16MB
+: "${HPPS_NOR_SIZE0:=0x80000000}"           #  2G: big enough to hold smaller actual size NOR chips
+: "${HPPS_NOR_PAGE_SIZE0:=2048}" # bytes    
+: "${HPPS_NOR_OOB_SIZE0:=64}" # bytes       # for compatibility to create_nand_image()
+: "${HPPS_NOR_ECC_SIZE0:=12}" # bytes       # for compatibility to create_nand_image()
+: "${HPPS_NOR_PAGES_PER_BLOCK0:=64}" # bytes
 : "${HPPS_NAND_SIZE0:=0x10000000}"           # 256MB
 : "${HPPS_NAND_PAGE_SIZE0:=2048}" # bytes
 : "${HPPS_NAND_OOB_SIZE0:=64}" # bytes
