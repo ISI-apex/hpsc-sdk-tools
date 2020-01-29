@@ -235,16 +235,20 @@ DEPS_TC=\
 # * gcc-arm-none-eabi v8 (from ARM, not Linaro) breaks build of M4,R52 bare metal
 # * gcc-arm-none-eabi older than v7 2018-q2-update breaks build of R52 bare metal
 
-VER_arm_gnu_rm=7-2018-q2-update
 # Page: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads
-URL_arm_gnu_rm=https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2018q2
+VER_MAJ_arm_gnu_rm=7
+VER_YEAR_arm_gnu_rm=2018
+VER_QTR_arm_gnu_rm=q2
+VER_DATE_arm_gnu_rm=$(VER_YEAR_arm_gnu_rm)-$(VER_QTR_arm_gnu_rm)
+VER_arm_gnu_rm=$(VER_MAJ_arm_gnu_rm)-$(VER_DATE_arm_gnu_rm)-update
+URL_arm_gnu_rm=https://developer.arm.com/-/media/Files/downloads/gnu-rm/$(VER_MAJ_arm_gnu_rm)-$(VER_YEAR_arm_gnu_rm)$(VER_QTR_arm_gnu_rm)
 TARBALL_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)-linux.tar.bz2
 DIR_arm_gnu_rm=gcc-arm-none-eabi-$(VER_arm_gnu_rm)
 
+# Page: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a/downloads
 VER_MAJMIN_arm_gnu_a=9.2
 VER_BLD_arm_gnu_a=2019.12
 VER_arm_gnu_a=$(VER_MAJMIN_arm_gnu_a)-$(VER_BLD_arm_gnu_a)
-# Page: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a/downloads
 URL_arm_gnu_a=https://developer.arm.com/-/media/Files/downloads/gnu-a/$(VER_arm_gnu_a)/binrel
 TARBALL_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-none-linux-gnu.tar.xz
 DIR_arm_gnu_a=gcc-arm-$(VER_arm_gnu_a)-x86_64-aarch64-none-linux-gnu
