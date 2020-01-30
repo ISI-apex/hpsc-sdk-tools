@@ -82,12 +82,14 @@ try:
     fout = open(args.output, "wb")
     fmap_it = MemMap.iter_mem(fmap, args.memory)
     try:
-        if mem_type == "ram":
+        if mem_type in ["ram", "nvram", "nor-flash"]:
             size = cfg.get_prop_as_size(args.memory, 'size')
             print("Creating %s image of size:" % mem_type, size_str(size))
             if fmt == "bin":
                 fout = open(args.output, "wb")
                 fout.truncate(size)
+                if mem_type == "nor-flash":
+                    fill_image_with_ones(fout, fmt, size)
                 fill_image(fout, fmt, size, fmap_it)
                 fout.close()
             elif fmt == "vhex":
@@ -95,7 +97,7 @@ try:
                 raise MkMemImgException(
                     "vhex format not implemented (mem %s)" % args.memory)
                 fout.close()
-        elif mem_type == "nand":
+        elif mem_type == "nand-flash":
             if fmt == "vhex":
                 raise MkMemImgException(
                     "vhex format not implemented (mem %s)" % args.memory)
