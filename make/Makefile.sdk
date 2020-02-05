@@ -20,6 +20,10 @@ SDK_TOOLS=hpsc-sdk-tools
 WGET=wget
 TAR=tar
 
+ifeq ($(filter %/bash,$(realpath $(SHELL))),)
+$(error Unsupported shell (not Bash): $(SHELL) ($(realpath $(SHELL))))
+endif
+
 # Each group adds prereqs
 all:
 fetch: $(FETCH)
