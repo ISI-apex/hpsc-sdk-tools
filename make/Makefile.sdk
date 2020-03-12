@@ -138,6 +138,32 @@ deps/arch: | $(BLD)/.
 	echo > $(BLD)/$(DEP_ENV_FILE)
 .PHONY: deps/arch
 
+deps/debian10: | $(BLD)/.
+	sudo apt-get install \
+		bc \
+		bison \
+		dtc \
+		expect \
+		flex \
+		libexpat1-dev \
+		libisl-dev \
+		libglib2.0-dev \
+		libmpc-dev \
+		libmpfr-dev \
+		libpixman-1-dev
+		libssl-dev \
+		libreadline-dev \
+		pkg-config \
+		python \
+		python3 \
+		python3-dev \
+		screen \
+		tcl-dev \
+		texinfo \
+		u-boot-tools \
+		zlib1g-dev \
+	echo > $(BLD)/$(DEP_ENV_FILE)
+
 # Option: dependencies built from source
 
 # The depend sysroot builder just happens to be version controlled int he
