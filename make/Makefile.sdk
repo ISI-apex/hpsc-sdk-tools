@@ -104,6 +104,9 @@ gpgcheck=1
 gpgkey=http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
 endef
 
+deps/manual: | $(BLD)/.
+	echo > $(BLD)/$(DEP_ENV_FILE)
+
 deps/centos7: export CENTOS_NUX_MIX_REPO_SH=$(CENTOS_NUX_MIX_REPO)
 deps/centos7: | $(BLD)/.
 	if ! yum list installed ius-release; then \
