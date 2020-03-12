@@ -227,7 +227,7 @@ fi
 
 ## Internal parameters (can be changed at will)
 
-SCREEN_SCROLLBACK=1000000 # lines in serial port screen sessions
+SCREEN_SCROLLBACK=1000 # lines in serial port screen sessions
 
 # These "limits" exist only in order to keep ports for each instance together.
 MAX_INSTANCES=8
