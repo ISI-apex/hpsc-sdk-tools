@@ -153,6 +153,7 @@ deps/debian10: | $(BLD)/.
 		libpixman-1-dev
 		libssl-dev \
 		libreadline-dev \
+		mtd-utils \
 		pkg-config \
 		python \
 		python3 \
