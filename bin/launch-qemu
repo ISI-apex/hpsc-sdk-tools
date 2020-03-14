@@ -356,8 +356,14 @@ fi
 
 for arg_file in "${ARG_FILES[@]}"
 do
-	echo "Loading arguments from file: ${arg_file}"
-	QEMU_ARGS+=($(cat "${arg_file}"))
+   if [ -f "${arg_file}" ]
+   then
+      echo "Loading arguments from file: ${arg_file}"
+      QEMU_ARGS+=($(cat "${arg_file}"))
+   else
+      echo "ERROR: file with arguments not found: ${arg_file}" 1>&2
+      exit 1
+   fi
 done
 
 COMMAND=("${GDB_ARGS[@]}" "qemu-system-aarch64"
