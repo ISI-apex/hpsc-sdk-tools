@@ -268,7 +268,7 @@ done
 # Relative paths in memory map are relative to this
 : "${ROOT:=.}"
 
-: "${LOG_FILE:=/tmp/qemu-$(whoami)-${ID}.log}"
+: "${LOG_FILE:=qemu-${ID}.log}"
 : "${BRIDGE:=br0}"
 : "${HOST_BIND_IP:=127.0.0.1}"
 
