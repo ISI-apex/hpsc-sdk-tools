@@ -125,6 +125,7 @@ deps/centos7: | $(BLD)/.
 		pygobject2 pygboject2-devel
 	sudo sh -c "echo \"$$CENTOS_NUX_MIX_REPO_SH\" > /etc/yum.repos.d/nux-misc.repo"
 	sudo yum -y --enablerepo=nux-misc install mtd-utils
+	sudo pip3 install pytest pytest-timeout pexpect # distro packages are too old
 	echo > $(BLD)/$(DEP_ENV_FILE)
 .PHONY: deps/centos7
 
@@ -132,7 +133,8 @@ deps/arch: | $(BLD)/.
 	sudo pacman -S --needed base-devel git screen rsync python python2 \
 		uboot-tools glib2 pixman zlib ncurses wget dtc bc gmp guile2.0 \
 		chrpath cpio diffstat rpcsvc-proto patchelf readline which \
-		openssl mtd-utils fakeroot tcl
+		openssl mtd-utils fakeroot tcl \
+		python-pytest python-pytest-timeout python-pexpect
 	which pacaur # if not installed, please install pacaur manually
 	pacaur -S --needed pax
 	echo > $(BLD)/$(DEP_ENV_FILE)
@@ -158,6 +160,9 @@ deps/debian10: | $(BLD)/.
 		python \
 		python3 \
 		python3-dev \
+		python3-pexpect \
+		python3-pytest \
+		python3-pytest-timeout \
 		screen \
 		tcl-dev \
 		texinfo \

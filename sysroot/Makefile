@@ -142,6 +142,10 @@ DEPS_PY=\
 	setuptools_scm \
 	argparse \
 	configparser \
+	pexpect \
+	ptyprocess \
+	pytest \
+	pytest-timeout \
 	pprint \
 	meson \
 
@@ -341,6 +345,10 @@ VER_setuptools_scm=3.3.3
 VER_argparse=1.4.0
 VER_pprint=0.1
 VER_configparser=4.0.2
+VER_pexpect=4.8.0
+VER_ptyprocess=0.6.0
+VER_pytest=5.4.1
+VER_pytest-timeout=1.3.4
 VER_meson=0.51.2
 
 # Defaults for url fname, tarballs and dirs, override the exceptions above
