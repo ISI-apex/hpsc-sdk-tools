@@ -466,6 +466,8 @@ esac
 
 if [ "$DO_PRINT" -eq 1 ]
 then
+    echo "PID: $$"
+    echo "PWD: $PWD"
     echo "Final Command (one arg per line):"
     for arg in "${COMMAND[@]}"
     do
