@@ -1,19 +1,29 @@
 import sys
 import telnetlib
 import json
+import time
 #import pprint
 
 class QMP:
-    def __init__(self, host, port, verbose=False):
+    def __init__(self, host, port, timeout=None, verbose=False):
         self.host = host
         self.port = port
         self.verbose = verbose
 
-        self.cl = telnetlib.Telnet(self.host, self.port)
-        reply = self.cl.read_until(b"\r\n")
-        # required handshake
-        self.cl.write(b'{"execute": "qmp_capabilities"}')
-        reply = self.cl.read_until(b"\r\n")
+        start_time = time.time()
+        while True:
+            try:
+                self.cl = telnetlib.Telnet(self.host, self.port)
+                reply = self.cl.read_until(b"\r\n")
+                # required handshake
+                self.cl.write(b'{"execute": "qmp_capabilities"}')
+                reply = self.cl.read_until(b"\r\n")
+                return
+            except ConnectionRefusedError as e:
+                if timeout is None or time.time() - start_time > timeout:
+                    raise e
+                time.sleep(2)
+                continue
 
     def command(self, cmd, **args):
         req = json.dumps({"execute": cmd, "arguments": args})
