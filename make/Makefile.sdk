@@ -244,6 +244,61 @@ $(S_qemu-dt)/clean:
 all: $(S_qemu-dt)
 clean: $(S_qemu-dt)/clean
 
+S_rtems-sb=rtems-source-builder
+F_rtems-sb=$(FETCH)/rtems-source-builder
+B_rtems-sb=$(BLD)/rtems-source-builder
+RTEMS_SB_ENV_DIR=env
+RTEMS_SB_TARGET=5/rtems-arm
+RTEMS_SB_CONFIG_DIRS="rtems/config:source-builder/config:bare/config"
+#RTEMS_SB_VARS=RSB_ENV_DIR=$(abspath $(B_rtems-sb)/$(RTEMS_SB_ENV_DIR))
+# Split into a fetch and a build+install target
+$(F_rtems-sb) $(F_rtems-sb)/sources $(S_rtems-sb)/fetch: | $(F_rtems-sb)/.
+	cd $(S_rtems-sb) &&  $(RTEMS_SB_VARS) ./source-builder/sb-set-builder \
+		--without-rtems --source-only-download --no-install --log=../$@/fetch.log \
+		--configdir="$(RTEMS_SB_CONFIG_DIRS)" --topdir="../$(F_rtems-sb)" \
+		$(RTEMS_SB_TARGET)
+$(F_rtems-sb)/clean:
+	rm -rf "$(@D)"
+.PHONY: $(S_rtems-sb)/fetch $(F_rtems-sb)/clean
+$(FETCH)/clean: $(F_rtems-sb)/clean
+$(FETCH): $(F_rtems-sb)
+# Unset MAKEFLAGS= because it breaks 'automake' package build (when jobs >= 2)
+# # TODO: artifact
+$(B_rtems-sb): $(F_rtems-sb) | $(B_rtems-sb)/.
+	cd $(S_rtems-sb) && $(RTEMS_SB_VARS) MAKEFLAGS= ./source-builder/sb-set-builder \
+		--without-rtems --no-download --no-clean --prefix="$(abspath $(SDK_PREFIX))" \
+		--configdir="$(RTEMS_SB_CONFIG_DIRS)" --topdir="../$(B_rtems-sb)" \
+		--sourcedir="../$(F_rtems-sb)/sources" --patchdir="../$(F_rtems-sb)/patches" \
+		$(RTEMS_SB_TARGET)
+all: $(B_rtems-sb)
+$(B_rtems-sb)/clean:
+	rm -rf "$(B_rtems-sb)"
+	# TODO: remove from prefix
+.PHONY: $(B_rtems-sb) $(B_rtems-sb)/clean
+clean: $(B_rtems-sb)/clean
+# Alias for convenience, to invoke either way
+$(S_rtems-sb): $(B_rtems-sb) ;
+$(S_rtems-sb)/%: $(B_rtems-sb)/% ;
+
+S_rtems-tools=rtems-tools
+# The waf script breaks when build directory is outside of the source tree
+RTEMS_TOOLS_BLD_DIR=build
+RTEMS_TOOLS_ART=share/rtems/config/rtems-version.ini
+B_rtems-tools=$(S_rtems-tools)/$(RTEMS_TOOLS_BLD_DIR)
+$(B_rtems-tools)/config.log:
+	        cd $(S_rtems-tools) && ./waf configure --out $(RTEMS_TOOLS_BLD_DIR) \
+			--prefix="$(abspath $(SDK_PREFIX))"
+$(B_rtems-tools) $(B_rtems-tools)/$(RTEMS_TOOLS_ART): $(B_rtems-tools)/config.log
+	        cd $(S_rtems-tools) && ./waf build install
+$(B_rtems-tools)/clean:
+	rm -rf "$(B_rtems-tools)" $(SDK_PREFIX)/$(RTEMS_TOOLS_ART)
+all: $(SDK_PREFIX)/$(RTEMS_TOOLS_ART)
+.PHONY: $(B_rtems-tools) $(B_rtems-tools)/clean
+clean: $(B_rtems-tools)/clean
+# Alias for convenience, to invoke either way
+$(S_rtems-tools): $(B_rtems-tools) ;
+$(S_rtems-tools)/%: $(B_rtems-tools)/% ;
+
 S_zebu=zebu
 $(S_zebu): $(BLD)/$(DEP_ENV_FILE)
 	$(ZEBU_SHELL) -c 'source $(ZEBU_ENV) && make -C $(S_zebu)'
@@ -455,11 +510,14 @@ PATHS=$(subst $(SPACE),:,$(abspath \
 ZEBU_SHELL=csh
 ZEBU_ENV=$(abspath $(S_zebu)/zebu_setup.sh)
 
+# RTEMS Source Builder doesn't install sb-bootstrap such that coud add to PATH.
 define ENV
 export PATH="$(PATHS):$$PATH"
+export PYTHONPATH="$(abspath $(SDK_TOOLS)/bin):$$PYTHONPATH"
 export QEMU_DT="$(abspath $(S_qemu-dt))"
 export QEMU_DT_SRC="hpsc-arch.dts"
 export QEMU_DT_FILE="$$QEMU_DT/LATEST/SINGLE_ARCH/hpsc-arch.dtb"
+export RTEMS_SOURCE_BUILDER=$(abspath $(S_rtems-sb)/source-builder)
 export HPSC_SDK_CONF="$(abspath $(S_sdk-tools)/conf)"
 export ZEBU="$(abspath $(S_zebu))"
 export TCLLIBPATH="$(abspath $(SDK_PREFIX)/lib)"
