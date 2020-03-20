@@ -40,14 +40,17 @@ def fill_image_with_ones(fout, fmt, size):
 
 def fill_image(fout, fmt, size, fmap_it):
     remaining_space = size
+    out_extents = [] # to detect overlap
     for line, k, addr, blob in fmap_it:
         if addr == MemMap.DEST_ELF:
             raise MkMemImgException(
                 "NOT IMPLEMENTED: composing image from ELF")
         addr = int_autobase(addr)
+        print("mkmemimg: mem %s: adding to offset 0x%08x blob %s" % (k, addr, blob))
 
         fin = open(blob.fname, "rb")
         fin.seek(blob.slice_offset)
+        blob_len = 0 # written bytes
         if fmt == "bin":
             fout.seek(addr)
             while blob.slice_length is None or blob.slice_length > 0:
@@ -64,11 +67,18 @@ def fill_image(fout, fmt, size, fmap_it):
                     raise MkMemImgException("content overflowed image")
                 fout.write(d)
                 remaining_space -= len(d)
+                blob_len += len(d)
         elif fmt == "vhex":
             print("@%x" % addr, file=fout)
             # TODO: re-use hpsc-objcopy's classes
             raise MkMemImgException("NOT IMPLEMENTED: sparse vhex format", line)
         fin.close()
+        for ext_start, ext_size in out_extents:
+            if not (addr + blob_len <= ext_start or ext_start + ext_size <= addr):
+                raise MkMemImgException(("overlap: blob %r at 0x%08x size 0x%x " + \
+                    "overlaps with extent written at 0x%08x sz 0x%x") % \
+                    (blob, addr, blob_len, ext_start, ext_size))
+        out_extents.append((addr, blob_len))
 
 def size_str(size):
     return "%u bytes = %.4f MB" % (size, float(size) / (1<<20))

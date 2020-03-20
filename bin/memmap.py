@@ -21,6 +21,9 @@ class MemMap:
             self.fname = fname
             self.slice_offset = slice_offset
             self.slice_length = slice_length
+        def __repr__(self):
+            return "%s:0x%x-%s" % (self.fname, self.slice_offset, \
+                    (self.slice_length if self.slice_length else "END"))
 
     def not_comment(line):
         line = re.sub(r'\s*#.*', '', line.strip())
