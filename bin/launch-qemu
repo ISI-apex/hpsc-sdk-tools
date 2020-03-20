@@ -45,7 +45,7 @@ trap finish EXIT
 
 function usage()
 {
-    echo "Usage: $0 [-hSq] [-d dt_file] [-e env]*  [-l categories] [-a file] [-n netcfg [-p port]*] [-i id] [[ cmd ] args...]" 1>&2
+    echo "Usage: $0 [-hSqD] [-d dt_file] [-e env]*  [-l categories] [-a file] [-n netcfg [-p port]*] [-i id] [[ cmd ] args...]" 1>&2
     echo "               cmd: command" 1>&2
     echo "                    dry - do everything except launching Qemu" 1>&2
     echo "                    run - start emulation (default)" 1>&2
@@ -53,6 +53,7 @@ function usage()
     echo "               args: arguments to pass to Qemu command line" 1>&2
     echo "               -a file: file with arguments to add to the command line" 1>&2
     echo "               -d dt_file: Qemu device tree file that defines the machine" 1>&2
+    echo "               -D: do not attach screen sessions to serial ports" 1>&2
     echo "               -e env: load environment settings from file" 1>&2
     echo "               -i id: numeric index of Qemu instance" 1>&2
     echo "               -l categories: comma-separated categories to log in Qemu log (e.g. "asm_in,int") " 1>&2
@@ -171,13 +172,14 @@ setup_console()
 RESET=1
 NET=none
 MONITOR=1
+ATTACH_CONSOLES=1
 FWD_PORTS=()
 ENV_FILES=("${PWD}/qemu-env.sh")
 ARG_FILES=()
 LOG_CATEGORIES="fdt,guest_errors,unimp,cpu_reset"
 
 # parse options
-while getopts "h?S?q?e:d:i:l:a:p:n:" o; do
+while getopts "h?D?S?q?e:d:i:l:a:p:n:" o; do
     case "${o}" in
         S)
             RESET=0
@@ -187,6 +189,9 @@ while getopts "h?S?q?e:d:i:l:a:p:n:" o; do
             ;;
         d)
             QEMU_DT_FILE="$OPTARG"
+            ;;
+        D)
+            ATTACH_CONSOLES=0
             ;;
         e)
             ENV_FILES+=("$OPTARG")
@@ -298,7 +303,8 @@ declare -A SCREEN_SESSIONS
 SERIAL_PORT_ARGS=()
 for p in "${SERIAL_PORTS[@]}"
 do
-    if [ ! -z "${SERIAL_PORT_NAMES[$p]}" ] # empty name means disabled
+    # empty name in SERIAL_PORT_NAMES means disabled
+    if [[ "$ATTACH_CONSOLES" -eq 1 && ! -z "${SERIAL_PORT_NAMES[$p]}" ]]
     then
         SCREEN_SESSIONS[$p]="hpsc-$SERIAL_ID-${SERIAL_PORT_NAMES[$p]}"
     fi
