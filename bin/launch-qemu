@@ -265,9 +265,6 @@ done
 # Privatize ports and screen sessions for this Qemu instance
 : "${ID:=0}"
 
-# Memory images created by this script will go here
-: "${RUN_DIR:=.}"
-
 # Relative paths in memory map are relative to this
 : "${ROOT:=.}"
 
@@ -296,8 +293,6 @@ done
 : "${SERIAL_ID:=$ID}"
 
 ## Actions commence here
-
-mkdir -p "${RUN_DIR}"
 
 declare -A SCREEN_SESSIONS
 SERIAL_PORT_ARGS=()
