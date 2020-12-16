@@ -293,7 +293,7 @@ B_rtems-tools=$(S_rtems-tools)/$(RTEMS_TOOLS_BLD_DIR)
 $(B_rtems-tools)/config.log:
 	        cd $(S_rtems-tools) && ./waf configure --out $(RTEMS_TOOLS_BLD_DIR) \
 			--prefix="$(abspath $(SDK_PREFIX))"
-$(B_rtems-tools) $(B_rtems-tools)/$(RTEMS_TOOLS_ART): $(B_rtems-tools)/config.log
+$(B_rtems-tools) $(SDK_PREFIX)/$(RTEMS_TOOLS_ART): $(B_rtems-tools)/config.log
 	        cd $(S_rtems-tools) && ./waf build install
 $(B_rtems-tools)/clean:
 	rm -rf "$(B_rtems-tools)" $(SDK_PREFIX)/$(RTEMS_TOOLS_ART)
