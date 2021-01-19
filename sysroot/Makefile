@@ -531,7 +531,7 @@ $(ART_fakeroot): | $(ART_libcap)
 $(ART_util_linux): | $(ART_pkgconfig) $(ART_fakeroot)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS) \
 			--with-bashcompletiondir=$(HPREFIX)/share/bash-completions \
-			--without-python
+			--without-python --without-smack --without-systemd
 	$(MAKE) -C $(DIR)
 	$(FAKEROOT) $(MAKE) -C $(DIR) install
 
