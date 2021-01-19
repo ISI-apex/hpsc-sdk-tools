@@ -468,7 +468,7 @@ CONFIG_FLAGS=\
 	--prefix=$(HPREFIX) \
 	--libdir=$(HPREFIX)/$(LIBDIR)
 
-$(ART_pkgconfig):
+$(ART_pkgconfig): $(ART_glib)
 	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
 	$(MAKE) -C $(DIR) install
 
