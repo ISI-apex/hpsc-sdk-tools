@@ -283,6 +283,7 @@ $(B_rtems-sb): $(F_rtems-sb) | $(B_rtems-sb)/.
 		--without-rtems --no-download --no-clean --prefix="$(abspath $(SDK_PREFIX))" \
 		--configdir="$(RTEMS_SB_CONFIG_DIRS)" --topdir="../$(B_rtems-sb)" \
 		--sourcedir="../$(F_rtems-sb)/sources" --patchdir="../$(F_rtems-sb)/patches" \
+		--log=../$@/build.log \
 		$(RTEMS_SB_TARGET)
 all: $(B_rtems-sb)
 $(B_rtems-sb)/clean:
