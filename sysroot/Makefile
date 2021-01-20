@@ -468,8 +468,8 @@ CONFIG_FLAGS=\
 	--prefix=$(HPREFIX) \
 	--libdir=$(HPREFIX)/$(LIBDIR)
 
-$(ART_pkgconfig): $(ART_glib)
-	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS)
+$(ART_pkgconfig):
+	cd $(DIR) && $(SYSROOT_VARS) ./configure $(CONFIG_FLAGS) --with-internal-glib
 	$(MAKE) -C $(DIR) install
 
 # Many components depend on zlib, so add a blanket dependency -- this is a
